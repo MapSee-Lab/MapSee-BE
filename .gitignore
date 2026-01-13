@@ -7,3 +7,21 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Firebase
+*-fcm.json
+mapsee-fcm.json
+
+# Environment & Secrets
+application-prod.yml
+application-dev.yml
+*.env
+.env.*
+
+# Temporary files
+tmp_tripgether_be/

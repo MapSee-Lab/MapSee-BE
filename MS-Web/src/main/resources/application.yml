@@ -1,0 +1,59 @@
+spring:
+    application:
+        name: mapsee-be
+    profiles:
+        active: prod
+    flyway:
+        enabled: true
+        baseline-on-migrate: true
+        baseline-version: 0.0.0
+        locations: classpath:db/migration
+        sql-migration-prefix: V
+        sql-migration-separator: __
+        sql-migration-suffixes: .sql
+        validate-on-migrate: false
+
+# 서버 설정
+server:
+    port: 8080
+    servlet:
+        context-path: /
+
+# P6Spy 설정
+decorator:
+    datasource:
+        p6spy:
+            enable-logging: true
+            multiline: true
+            logging: slf4j
+
+# Swagger/OpenAPI 설정
+springdoc:
+    servers:
+        - url: https://api.mapsee.suhsaechan.kr
+          description: main-server
+        - url: http://localhost:8080
+          description: local-server
+    api-docs:
+        path: /v3/api-docs
+        enabled: true
+    swagger-ui:
+        path: /docs/swagger
+        enabled: true
+        tags-sorter: alpha
+        operations-sorter: alpha
+        try-it-out-enabled: true
+        filter: true
+    packages-to-scan: kr.suhsaechan.mapsee
+    paths-to-match: /api/**
+    default-consumes-media-type: application/json;charset=UTF-8
+    default-produces-media-type: application/json;charset=UTF-8
+
+# GitHub Issue 연동
+suhapilog:
+    github:
+        base-url: https://github.com/suhsaechan/MapSee-BE/issues/
+
+firebase:
+    credentials:
+        path: mapsee-fcm.json

@@ -1,0 +1,19 @@
+plugins {
+    id 'java-library'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+dependencies {
+    // 모든 모듈 의존
+    api project(':MS-Common')
+    api project(':MS-Member')
+    api project(':MS-Auth')
+    api project(':MS-Place')
+    api project(':MS-SNS')
+    api project(':MS-AI')
+}
+
+tasks.named('bootJar') {
+    archiveFileName = 'app.jar'
+}

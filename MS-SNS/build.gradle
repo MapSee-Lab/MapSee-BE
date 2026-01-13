@@ -1,0 +1,20 @@
+plugins {
+    id 'java-library'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+bootJar {
+    enabled = false
+}
+
+jar {
+    enabled = true
+    archiveClassifier = ''
+}
+
+dependencies {
+    api project(':MS-Common')
+    api project(':MS-Place')
+    api project(':MS-AI')
+}
