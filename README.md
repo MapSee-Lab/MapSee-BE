@@ -1,7 +1,8 @@
 # MapSee-BE
 
 <!-- 수정하지마세요 자동으로 동기화 됩니다 -->
-## 최신 버전 : v0.0.0
+<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
+## 최신 버전 : v0.1.1 (2026-01-18)
 
 [전체 버전 기록 보기](CHANGELOG.md)
 
