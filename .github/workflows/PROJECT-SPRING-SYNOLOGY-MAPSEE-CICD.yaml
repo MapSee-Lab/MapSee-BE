@@ -100,7 +100,7 @@ env:
   APPLICATION_YML_DIR: "MS-Web/src/main/resources"
 
   # 🌐 포트 설정
-  DEPLOY_PORT: "8093"  # deploy/main 브랜치 배포 포트
+  DEPLOY_PORT: "8096"  # deploy/main 브랜치 배포 포트
 
   # 📦 볼륨 마운트 설정
   # true: 볼륨 마운트 활성화 (디렉토리 없으면 자동 생성)
