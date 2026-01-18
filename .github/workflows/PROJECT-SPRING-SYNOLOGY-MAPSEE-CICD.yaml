@@ -96,6 +96,9 @@ env:
   JAVA_VERSION: "21"
   GRADLE_OPTS: "-Dspring.profiles.active=prod"
 
+  # 📁 경로 설정
+  APPLICATION_YML_DIR: "MS-Web/src/main/resources"
+
 jobs:
   # ===================================================================
   # 빌드 작업
@@ -123,18 +126,18 @@ jobs:
 
       # 4. Spring Boot 운영 환경 설정 파일 생성
       # GitHub Secrets에서 APPLICATION_PROD_YML 값을 읽어와서
-      # src/main/resources/application-prod.yml 파일로 생성
+      # 리소스 디렉토리에 파일로 생성
       - name: application-prod.yml 생성
         run: |
-          # 리소스 디렉토리 생성 (프로젝트 구조에 따라 경로 조정 필요)
-          mkdir -p src/main/resources
+          # 리소스 디렉토리 생성 (환경변수 사용)
+          mkdir -p ${{ env.APPLICATION_YML_DIR }}
 
           # GitHub Secrets의 APPLICATION_PROD_YML 내용을 파일로 저장
-          cat << 'EOF' > ./src/main/resources/application-prod.yml
+          cat << 'EOF' > ./${{ env.APPLICATION_YML_DIR }}/application-prod.yml
           ${{ secrets.APPLICATION_PROD_YML }}
           EOF
 
-          echo "✅ application-prod.yml 파일 생성 완료"
+          echo "✅ application-prod.yml 파일 생성 완료 (${{ env.APPLICATION_YML_DIR }})"
 
       # 5. Gradle 빌드 실행
       # 테스트는 제외하고 운영 프로파일로 빌드

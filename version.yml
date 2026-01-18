@@ -36,7 +36,7 @@
 
 version: "0.0.3"
 version_code: 4 # app build number
-project_type: "basic" # spring, flutter, next, react, react-native, react-native-expo, node, python, basic
+project_type: "spring" # spring, flutter, next, react, react-native, react-native-expo, node, python, basic
 metadata:
   last_updated: "2026-01-13 15:27:27"
   last_updated_by: "Cassiiopeia"
