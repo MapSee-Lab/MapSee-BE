@@ -25,7 +25,15 @@ name: PROJECT-SPRING-SYNOLOGY-CICD
 #
 # 🧪 선택적 Secrets (포트 커스터마이징시):
 # ┌─────────────────────────────┬────────────────────────────────────┐
-# │ PROJECT_DEPLOY_PORT         │ deploy 브랜치 배포 포트 (기본: 8081) │
+# │ PROJECT_DEPLOY_PORT         │ deploy 브랜치 배포 포트 (기본: 8080) │
+# │ PROJECT_TEST_PORT           │ test 브랜치 배포 포트 (기본: 8081)  │
+# └─────────────────────────────┴────────────────────────────────────┘
+#
+# 📦 볼륨 마운트 설정 (워크플로우 env 섹션에서 설정):
+# ┌─────────────────────────────┬────────────────────────────────────┐
+# │ ENABLE_VOLUME_MOUNT         │ 볼륨 마운트 활성화 (true/false)    │
+# │ VOLUME_HOST_PATH            │ 호스트 볼륨 경로                   │
+# │ VOLUME_CONTAINER_PATH       │ 컨테이너 내부 마운트 경로          │
 # └─────────────────────────────┴────────────────────────────────────┘
 #
 # 💡 포트 설정 예시:
@@ -98,6 +106,13 @@ env:
 
   # 📁 경로 설정
   APPLICATION_YML_DIR: "MS-Web/src/main/resources"
+
+  # 📦 볼륨 마운트 설정
+  # true: 볼륨 마운트 활성화 (디렉토리 없으면 자동 생성)
+  # false: 볼륨 마운트 비활성화 (기본값)
+  ENABLE_VOLUME_MOUNT: "false"
+  VOLUME_HOST_PATH: "/volume1/projects/mapsee"  # 호스트 경로
+  VOLUME_CONTAINER_PATH: "/mnt"  # 컨테이너 내부 경로
 
 jobs:
   # ===================================================================
@@ -281,18 +296,32 @@ jobs:
             # ============================================================
             echo "🚀 새로운 컨테이너 $CONTAINER_NAME 실행 중..."
 
+            # 볼륨 마운트 옵션 설정
+            VOLUME_MOUNT_OPTION=""
+            if [ "${{ env.ENABLE_VOLUME_MOUNT }}" == "true" ]; then
+              # 디렉토리가 없으면 생성
+              if [ ! -d "${{ env.VOLUME_HOST_PATH }}/${PROJECT_NAME}" ]; then
+                echo "📁 볼륨 마운트 디렉토리 생성: ${{ env.VOLUME_HOST_PATH }}/${PROJECT_NAME}"
+                echo $PW | sudo -S mkdir -p "${{ env.VOLUME_HOST_PATH }}/${PROJECT_NAME}"
+              fi
+              VOLUME_MOUNT_OPTION="-v ${{ env.VOLUME_HOST_PATH }}/${PROJECT_NAME}:${{ env.VOLUME_CONTAINER_PATH }}/${PROJECT_NAME}"
+              echo "📦 볼륨 마운트 활성화: $VOLUME_MOUNT_OPTION"
+            else
+              echo "ℹ️ 볼륨 마운트 비활성화됨"
+            fi
+
             # Docker 컨테이너 실행
             # - 포트 매핑: ${PORT}:8080 (외부포트:내부포트)
             # - 시간대: Asia/Seoul
             # - Spring 프로파일: prod
-            # - 볼륨 마운트: 로컬 시간 동기화 및 프로젝트 데이터
+            # - 볼륨 마운트: ENABLE_VOLUME_MOUNT=true일 때만 활성화
             echo $PW | sudo -S docker run -d \
               -p ${PORT}:8080 \
               --name $CONTAINER_NAME \
               -e TZ=Asia/Seoul \
               -e "SPRING_PROFILES_ACTIVE=${{ env.SPRING_PROFILE }}" \
               -v /etc/localtime:/etc/localtime:ro \
-              -v /volume1/projects/${PROJECT_NAME}:/mnt/${PROJECT_NAME} \
+              $VOLUME_MOUNT_OPTION \
               ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}
 
             # ============================================================
