@@ -24,7 +24,7 @@ public class WebClientConfig {
    * Timeout 설정 및 메모리 버퍼 크기 설정 포함
    */
   @Bean
-  public WebClient webClient(WebClient.Builder builder) {
+  public WebClient webClient() {
     HttpClient httpClient = HttpClient.create()
         .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)  // 연결 타임아웃 10초
         .responseTimeout(Duration.ofSeconds(30))               // 응답 타임아웃 30초
@@ -33,7 +33,7 @@ public class WebClientConfig {
                 .addHandlerLast(new WriteTimeoutHandler(30, TimeUnit.SECONDS))  // 쓰기 타임아웃 30초
         );
 
-    return builder
+    return WebClient.builder()
         .clientConnector(new ReactorClientHttpConnector(httpClient))
         .codecs(configurer -> configurer
             .defaultCodecs()
