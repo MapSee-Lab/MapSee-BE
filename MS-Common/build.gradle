@@ -69,4 +69,7 @@ dependencies {
 
     // Firebase Admin SDK
     api 'com.google.firebase:firebase-admin:9.3.0'
+
+    // Suh Random Engine (닉네임 생성)
+    api 'me.suhsaechan:suh-random-engine:1.1.0'
 }

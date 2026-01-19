@@ -1,8 +1,10 @@
 package kr.suhsaechan.mapsy.auth.service;
 
+import com.google.firebase.auth.FirebaseToken;
 import kr.suhsaechan.mapsy.auth.dto.AuthRequest;
 import kr.suhsaechan.mapsy.auth.dto.AuthResponse;
 import kr.suhsaechan.mapsy.auth.dto.CustomUserDetails;
+import kr.suhsaechan.mapsy.auth.dto.FirebaseUserInfo;
 import kr.suhsaechan.mapsy.auth.dto.ReissueRequest;
 import kr.suhsaechan.mapsy.auth.dto.ReissueResponse;
 import kr.suhsaechan.mapsy.auth.dto.SignInRequest;
@@ -14,14 +16,12 @@ import kr.suhsaechan.mapsy.member.constant.MemberOnboardingStatus;
 import kr.suhsaechan.mapsy.member.constant.OnboardingStep;
 import kr.suhsaechan.mapsy.member.entity.FcmToken;
 import kr.suhsaechan.mapsy.member.entity.Member;
-import kr.suhsaechan.mapsy.member.entity.MemberInterest;
 import kr.suhsaechan.mapsy.member.repository.FcmTokenRepository;
-import kr.suhsaechan.mapsy.member.repository.MemberInterestRepository;
 import kr.suhsaechan.mapsy.member.repository.MemberRepository;
 import kr.suhsaechan.mapsy.member.service.MemberService;
+import kr.suhsaechan.mapsy.member.service.NicknameService;
 import io.jsonwebtoken.ExpiredJwtException;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,37 +43,48 @@ public class AuthService {
   private final MemberService memberService;
   private final JwtUtil jwtUtil;
   private final RedisTemplate<String, Object> redisTemplate;
-  private final MemberInterestRepository memberInterestRepository;
   private final FcmTokenRepository fcmTokenRepository;
+  private final FirebaseTokenService firebaseTokenService;
+  private final NicknameService nicknameService;
 
   /**
-   * 로그인 로직 클라이언트로부터 플랫폼, 닉네임, 프로필url, 이메일을 입력받아 JWT를 발급합니다.
+   * Firebase OAuth 로그인 로직
+   * 클라이언트로부터 Firebase ID Token을 받아 검증 후 JWT를 발급합니다.
    */
   @Transactional
   public SignInResponse signIn(SignInRequest request) {
-    // FCM 토큰 입력값 검증
+    // 1단계: FCM 토큰 요청 검증
     validateFcmTokenRequest(request);
 
-    // 요청 값으로부터 사용자 정보 획득
-    String email = request.getEmail();
-    String name = request.getName();
+    // 2단계: Firebase ID Token 검증
+    FirebaseToken decodedToken = firebaseTokenService.verifyIdToken(request.getFirebaseIdToken());
 
-    //회원 조회
+    // 3단계: 토큰에서 사용자 정보 추출
+    FirebaseUserInfo userInfo = firebaseTokenService.extractUserInfo(decodedToken);
+    String email = userInfo.getEmail();
+    String profileImageUrl = userInfo.getProfileImageUrl();
+
+    // 4단계: 회원 조회 또는 신규 생성
     Member member = memberRepository.findByEmail(email)
         .orElseGet(() -> {
-          // 신규 회원 생성 시 기본값 자동 설정
+          // 신규 회원 생성 시 랜덤 닉네임 자동 생성
+          String randomNickname = nicknameService.generateUniqueNickname();
+
           Member newMember = Member.builder()
               .email(email)
-              .name("name")
+              .name(randomNickname)              // 자동 생성된 랜덤 닉네임
+              .profileImageUrl(profileImageUrl)  // Firebase 프로필 이미지
               .build();
+
           memberRepository.save(newMember);
-          log.debug("신규 회원 가입: {}", email);
+          log.info("신규 회원 가입 - email={}, nickname={}", email, randomNickname);
           return newMember;
         });
 
+    // 5단계: 첫 로그인 여부 확인
     boolean isFirstLogin = member.getOnboardingStatus() == MemberOnboardingStatus.NOT_STARTED;
 
-    //온보딩 상태 갱신 (NOT_STARTED → IN_PROGRESS)
+    // 6단계: 온보딩 상태 갱신
     if (isFirstLogin) {
       member.setOnboardingStatus(MemberOnboardingStatus.IN_PROGRESS);
       memberRepository.save(member);
@@ -82,33 +93,32 @@ public class AuthService {
       log.debug("기존 회원 로그인: {}", email);
     }
 
-    // FCM 토큰 저장/업데이트
+    // 7단계: FCM 토큰 저장/업데이트
     saveFcmToken(member, request);
 
-    // JWT 토큰 생성
+    // 8단계: JWT 토큰 생성
     CustomUserDetails customUserDetails = new CustomUserDetails(member);
     String accessToken = jwtUtil.createAccessToken(customUserDetails);
     String refreshToken = jwtUtil.createRefreshToken(customUserDetails);
 
     log.debug("로그인 성공: email={}, accessToken={}, refreshToken={}", email, accessToken, refreshToken);
 
-    // RefreshToken -> Redis 저장 (키: "RT:{memberId}")
+    // 9단계: RefreshToken -> Redis 저장 (키: "RT:{memberId}")
     redisTemplate.opsForValue().set(
         REFRESH_KEY_PREFIX + customUserDetails.getMemberId(),
         refreshToken,
         jwtUtil.getRefreshExpirationTime(),
         TimeUnit.MILLISECONDS);
 
-    //온보딩 필요 여부 확인
+    // 10단계: 온보딩 필요 여부 확인
     boolean requiresOnboarding = (member.getOnboardingStatus() != MemberOnboardingStatus.COMPLETED);
 
-    // 온보딩 단계 계산 및 저장
-    // COMPLETED 상태면 계산하지 않고 캐시된 값 사용
+    // 11단계: 온보딩 단계 계산 및 저장
     String onboardingStep;
     if (member.getOnboardingStatus() == MemberOnboardingStatus.COMPLETED) {
       // COMPLETED 상태면 캐시된 값 사용 (없으면 COMPLETED 반환)
-      onboardingStep = member.getOnboardingStep() != null 
-          ? member.getOnboardingStep().name() 
+      onboardingStep = member.getOnboardingStep() != null
+          ? member.getOnboardingStep().name()
           : OnboardingStep.COMPLETED.name();
     } else {
       // IN_PROGRESS 또는 NOT_STARTED 상태면 계산 후 저장
@@ -116,7 +126,7 @@ public class AuthService {
       onboardingStep = step.name();
     }
 
-    //응답 생성
+    // 12단계: 응답 생성
     return SignInResponse.builder()
         .accessToken(accessToken)
         .refreshToken(refreshToken)
@@ -229,10 +239,6 @@ public class AuthService {
 
     // 탈퇴 처리 (email, name에 타임스탬프 자동 추가)
     String timestamp = member.withdraw(memberId.toString());
-
-    // 회원 관심사 소프트삭제
-    List<MemberInterest> memberInterests = memberInterestRepository.findByMemberId(memberId);
-    memberInterests.forEach(interest -> interest.softDelete(memberId.toString()));
 
     // FCM 토큰 삭제 (하드삭제 - 소프트삭제 시 FK 제약조건 위반 방지)
     fcmTokenRepository.deleteByMember(member);

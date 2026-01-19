@@ -9,25 +9,16 @@ import kr.suhsaechan.mapsy.member.constant.MemberGender;
 import kr.suhsaechan.mapsy.member.constant.MemberOnboardingStatus;
 import kr.suhsaechan.mapsy.member.constant.OnboardingStep;
 import kr.suhsaechan.mapsy.member.dto.CheckNameResponse;
-import kr.suhsaechan.mapsy.member.dto.InterestDto;
 import kr.suhsaechan.mapsy.member.dto.MemberDto;
 import kr.suhsaechan.mapsy.member.dto.ProfileUpdateRequest;
 import kr.suhsaechan.mapsy.member.dto.UpdateServiceAgreementTermsRequest;
 import kr.suhsaechan.mapsy.member.dto.UpdateServiceAgreementTermsResponse;
 import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateBirthDateRequest;
 import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateGenderRequest;
-import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateInterestsRequest;
-import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateNameRequest;
 import kr.suhsaechan.mapsy.member.dto.onboarding.response.OnboardingResponse;
-import kr.suhsaechan.mapsy.member.entity.Interest;
 import kr.suhsaechan.mapsy.member.entity.Member;
-import kr.suhsaechan.mapsy.member.entity.MemberInterest;
-import kr.suhsaechan.mapsy.member.repository.InterestRepository;
-import kr.suhsaechan.mapsy.member.repository.MemberInterestRepository;
 import kr.suhsaechan.mapsy.member.repository.MemberRepository;
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -45,8 +36,6 @@ import java.util.stream.Collectors;
 public class MemberService {
 
   private final MemberRepository memberRepository;
-  private final MemberInterestRepository memberInterestRepository;
-  private final InterestRepository interestRepository;
 
   // 만 14세 이상만 가입 가능
   LocalDate today = LocalDate.now();
@@ -93,11 +82,6 @@ public class MemberService {
       return OnboardingStep.TERMS;
     }
 
-    // 이름 체크 (기본값이거나 빈 문자열인 경우)
-    if (member.getName() == null || member.getName().trim().isEmpty() || member.getName().equals("name")) {
-      return OnboardingStep.NAME;
-    }
-
     // 생년월일 체크
     if (member.getBirthDate() == null) {
       return OnboardingStep.BIRTH_DATE;
@@ -106,12 +90,6 @@ public class MemberService {
     // 성별 체크
     if (member.getGender() == null) {
       return OnboardingStep.GENDER;
-    }
-
-    // 관심사 체크
-    List<MemberInterest> interests = memberInterestRepository.findByMemberId(member.getId());
-    if (interests == null || interests.isEmpty()) {
-      return OnboardingStep.INTERESTS;
     }
 
     // 모든 단계 완료
@@ -179,56 +157,6 @@ public class MemberService {
 
     // Response 생성 및 반환
     return UpdateServiceAgreementTermsResponse.builder()
-        .currentStep(currentStep)
-        .onboardingStatus(member.getOnboardingStatus().name())
-        .member(MemberDto.entityToDto(member))
-        .build();
-  }
-
-  /**
-   * 이름 업데이트
-   *
-   * @param request 이름 업데이트 요청
-   * @return 온보딩 응답 (현재 단계, 상태, 회원 정보)
-   */
-  @Transactional
-  public OnboardingResponse updateName(UpdateNameRequest request) {
-    UUID memberId = request.getMemberId();
-
-    Member member = memberRepository.findById(memberId)
-        .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-
-    if(member.getOnboardingStep() != OnboardingStep.NAME && member.getOnboardingStep() != OnboardingStep.COMPLETED) {
-      log.warn("[Onboarding] 현재 온보딩 단계가 닉네임 설정이 아님 - memberId={}, currentStep={}",
-          memberId, member.getOnboardingStep());
-      throw new CustomException(ErrorCode.INVALID_ONBOARDING_STEP);
-    }
-
-    if (request.getName().length() < 2 || request.getName().length() > 50) {
-      log.warn("[Onboarding] 닉네임은 2자 이상 50자 이하 - memberName={}", request.getName());
-      throw new CustomException(ErrorCode.INVALID_NAME_LENGTH);
-    }
-
-    boolean isDuplicateName = memberRepository.existsByNameAndIdNot(request.getName(), memberId);
-    if (isDuplicateName) {
-      log.warn("[Onboarding] 이미 사용 중인 닉네임 - memberName={}", request.getName());
-      throw new CustomException(ErrorCode.NAME_ALREADY_EXISTS);
-    }
-
-    member.setName(request.getName());
-
-    // 온보딩 상태를 IN_PROGRESS로 변경
-    if (member.getOnboardingStatus() == MemberOnboardingStatus.NOT_STARTED) {
-      member.setOnboardingStatus(MemberOnboardingStatus.IN_PROGRESS);
-    }
-
-    // 온보딩 단계 계산 및 저장
-    OnboardingStep currentStep = calculateAndSaveOnboardingStep(member);
-
-    log.info("[Onboarding] 이름 업데이트 완료 - memberId={}, name={}, currentStep={}",
-        memberId, request.getName(), currentStep);
-
-    return OnboardingResponse.builder()
         .currentStep(currentStep)
         .onboardingStatus(member.getOnboardingStatus().name())
         .member(MemberDto.entityToDto(member))
@@ -331,81 +259,6 @@ public class MemberService {
         .build();
   }
 
-  /**
-   * 관심사 업데이트 (전체 교체)
-   *
-   * @param request 관심사 업데이트 요청
-   * @return 온보딩 응답 (현재 단계, 상태, 회원 정보)
-   */
-  @Transactional
-  public OnboardingResponse updateInterests(UpdateInterestsRequest request) {
-    UUID memberId = request.getMemberId();
-
-    Member member = memberRepository.findById(memberId)
-        .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-
-    if(member.getOnboardingStep() != OnboardingStep.INTERESTS && member.getOnboardingStep() != OnboardingStep.COMPLETED) {
-      log.warn("[Onboarding] 현재 온보딩 단계가 관심사 설정이 아님 - memberId={}, currentStep={}",
-          memberId, member.getOnboardingStep());
-      throw new CustomException(ErrorCode.INVALID_ONBOARDING_STEP);
-    }
-
-    List<UUID> interestIds = request.getInterestIds();
-    Set<UUID> uniqueInterestIds = new HashSet<>(interestIds);
-    if (uniqueInterestIds.size() != interestIds.size()) {
-      log.warn("[Onboarding] 중복된 관심사 ID 포함 - memberId={}, interestIds={}",
-          memberId, interestIds);
-      throw new CustomException(ErrorCode.DUPLICATE_INTEREST_IDS);
-    }
-
-    // 관심사 ID 유효성 검증
-    List<Interest> interests = interestRepository.findAllById(request.getInterestIds());
-    if (interests.size() != request.getInterestIds().size()) {
-      log.warn("[Onboarding] 유효하지 않은 관심사 ID 포함 - memberId={}", memberId);
-      throw new CustomException(ErrorCode.INTEREST_NOT_FOUND);
-    }
-
-    // 관심사 최소 3개 이상 선택 검증
-    if (request.getInterestIds().size() < 3) {
-      log.warn("[Onboarding] 최소 3개 이상의 관심사 선택 필요 - memberId={}, selectedCount={}",
-          memberId, request.getInterestIds().size());
-      throw new CustomException(ErrorCode.INSUFFICIENT_INTEREST_SELECTION);
-    }
-
-    // 기존 관심사 삭제
-    memberInterestRepository.deleteByMemberId(memberId);
-
-    // 새 관심사 추가
-    List<MemberInterest> memberInterests = request.getInterestIds().stream()
-        .map(interestId -> MemberInterest.builder()
-            .member(member)
-            .interest(interests.stream()
-                .filter(i -> i.getId().equals(interestId))
-                .findFirst()
-                .orElseThrow(() -> new CustomException(ErrorCode.INTEREST_NOT_FOUND)))
-            .build())
-        .collect(Collectors.toList());
-
-    memberInterestRepository.saveAll(memberInterests);
-
-    // 온보딩 상태를 IN_PROGRESS로 변경
-    if (member.getOnboardingStatus() == MemberOnboardingStatus.NOT_STARTED) {
-      member.setOnboardingStatus(MemberOnboardingStatus.IN_PROGRESS);
-    }
-
-    // 온보딩 단계 계산 및 저장
-    OnboardingStep currentStep = calculateAndSaveOnboardingStep(member);
-
-    log.info("[Onboarding] 관심사 업데이트 완료 - memberId={}, interestCount={}, currentStep={}",
-        memberId, memberInterests.size(), currentStep);
-
-    return OnboardingResponse.builder()
-        .currentStep(currentStep)
-        .onboardingStatus(member.getOnboardingStatus().name())
-        .member(MemberDto.entityToDto(member))
-        .build();
-  }
-
   @Transactional
   public MemberDto updateProfile(UUID memberId, ProfileUpdateRequest request) {
     // 회원 존재 여부 확인
@@ -452,16 +305,8 @@ public class MemberService {
     member.setGender(request.getGender());
     member.setBirthDate(request.getBirthDate());
 
-    updateInterests(
-        UpdateInterestsRequest.builder()
-            .memberId(memberId)
-            .interestIds(request.getInterestIds())
-            .build()
-    );
-
-    // updateInterests가 이미 member를 저장하므로, 최신 상태를 다시 조회하여 반환
-    member = memberRepository.findById(memberId)
-        .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+    // 변경사항 저장
+    memberRepository.save(member);
 
     log.info("[Onboarding] 프로필 업데이트 완료 - memberId={}, name={}, gender={}, birthDate={}",
         memberId, member.getName(), member.getGender(), member.getBirthDate());
@@ -525,42 +370,6 @@ public class MemberService {
     }
 
     return MemberDto.entityToDto(entity);
-  }
-
-  /**
-   * 회원 ID로 관심사 조회
-   *
-   *  @param memberId 회원 ID
-   * @return 회원 관심사 목록
-   */
-  public List<InterestDto> getInterestsByMemberId(UUID memberId) {
-    // 멤버가 존재하는지 확인
-    Member member = memberRepository.findById(memberId)
-        .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-
-    // 탈퇴한 회원인지 확인
-    if (member.isDeleted()) {
-      log.warn("[Member] 탈퇴한 회원의 관심사 조회 시도 - memberId={}", memberId);
-      throw new CustomException(ErrorCode.MEMBER_ALREADY_WITHDRAWN);
-    }
-
-    if(member.getOnboardingStep() != OnboardingStep.COMPLETED) {
-      log.warn("[Onboarding] 현재 온보딩 단계가 완료되지 않았음 - memberId={}, currentStep={}",
-          memberId, member.getOnboardingStep());
-      throw new CustomException(ErrorCode.INVALID_ONBOARDING_STEP);
-    }
-
-    // 멤버의 관심사 리스트 반환
-    List<MemberInterest> memberInterests = memberInterestRepository.findByMemberId(memberId);
-
-    // 관심사 ID를 통해 관심사 리스트 반환
-    List<InterestDto> interests = memberInterests.stream()
-        .map(memberInterest -> new InterestDto(
-            memberInterest.getInterest().getId(),
-            memberInterest.getInterest().getName()))
-        .collect(Collectors.toList());
-
-    return interests;
   }
 
   /**

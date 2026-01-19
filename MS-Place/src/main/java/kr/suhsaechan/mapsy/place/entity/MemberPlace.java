@@ -76,6 +76,48 @@ public class MemberPlace extends SoftDeletableBaseEntity {
   private LocalDateTime savedAt;
 
   /**
+   * 북마크 폴더명
+   * - 사용자가 장소를 분류하기 위한 폴더
+   * - 예: "가고 싶은 곳", "가본 곳", "즐겨찾기", "맛집" 등
+   * - 기본값: "default"
+   */
+  @Column(length = 50)
+  @Builder.Default
+  private String folder = "default";
+
+  /**
+   * 사용자 메모
+   * - 장소에 대한 개인적인 메모 (최대 1000자)
+   */
+  @Column(columnDefinition = "TEXT")
+  private String memo;
+
+  /**
+   * 별점 (1-5)
+   * - 사용자가 매긴 개인적인 평점
+   * - null 가능 (평가하지 않은 경우)
+   */
+  @Column
+  private Integer rating;
+
+  /**
+   * 방문 여부
+   * - true: 방문함, false: 방문하지 않음
+   * - 기본값: false
+   */
+  @Column(nullable = false)
+  @Builder.Default
+  private Boolean visited = false;
+
+  /**
+   * 방문 일시
+   * - 사용자가 실제로 방문한 시간
+   * - visited = true일 때만 의미 있음
+   */
+  @Column
+  private LocalDateTime visitedAt;
+
+  /**
    * 임시 저장 상태에서 저장 상태로 변경
    * - savedStatus: TEMPORARY -> SAVED
    * - savedAt: 현재 시간 기록
@@ -90,5 +132,54 @@ public class MemberPlace extends SoftDeletableBaseEntity {
 
     this.savedStatus = PlaceSavedStatus.SAVED;
     this.savedAt = LocalDateTime.now();
+  }
+
+  /**
+   * 폴더 변경
+   *
+   * @param newFolder 새 폴더명
+   */
+  public void updateFolder(String newFolder) {
+    this.folder = newFolder;
+  }
+
+  /**
+   * 메모 수정
+   *
+   * @param newMemo 새 메모
+   */
+  public void updateMemo(String newMemo) {
+    this.memo = newMemo;
+  }
+
+  /**
+   * 별점 수정
+   *
+   * @param newRating 새 별점 (1-5)
+   * @throws CustomException 별점이 1-5 범위를 벗어난 경우
+   */
+  public void updateRating(Integer newRating) {
+    if (newRating != null && (newRating < 1 || newRating > 5)) {
+      throw new CustomException(ErrorCode.INVALID_RATING);
+    }
+    this.rating = newRating;
+  }
+
+  /**
+   * 방문 여부 및 일시 기록
+   *
+   * @param visitedAt 방문 일시 (null이면 현재 시간)
+   */
+  public void markAsVisited(LocalDateTime visitedAt) {
+    this.visited = true;
+    this.visitedAt = visitedAt != null ? visitedAt : LocalDateTime.now();
+  }
+
+  /**
+   * 방문 취소
+   */
+  public void unmarkVisited() {
+    this.visited = false;
+    this.visitedAt = null;
   }
 }

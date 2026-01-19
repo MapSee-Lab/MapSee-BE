@@ -2,7 +2,6 @@ package kr.suhsaechan.mapsy.web.controller;
 
 import kr.suhsaechan.mapsy.auth.dto.CustomUserDetails;
 import kr.suhsaechan.mapsy.member.dto.CheckNameResponse;
-import kr.suhsaechan.mapsy.member.dto.InterestDto;
 import kr.suhsaechan.mapsy.member.dto.MemberDto;
 import kr.suhsaechan.mapsy.member.dto.ProfileUpdateRequest;
 import kr.suhsaechan.mapsy.member.dto.UpdateServiceAgreementTermsRequest;
@@ -10,8 +9,6 @@ import kr.suhsaechan.mapsy.member.dto.UpdateServiceAgreementTermsResponse;
 import kr.suhsaechan.mapsy.member.dto.onboarding.response.OnboardingResponse;
 import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateBirthDateRequest;
 import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateGenderRequest;
-import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateInterestsRequest;
-import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateNameRequest;
 import kr.suhsaechan.mapsy.member.service.MemberService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -51,16 +48,6 @@ public class MemberController implements MemberControllerDocs {
     return ResponseEntity.ok(response);
   }
 
-  @PostMapping("/onboarding/name")
-  public ResponseEntity<OnboardingResponse> updateName(
-      @AuthenticationPrincipal CustomUserDetails userDetails,
-      @Valid @RequestBody UpdateNameRequest request
-  ) {
-    request.setMemberId(userDetails.getMemberId());
-    OnboardingResponse response = memberService.updateName(request);
-    return ResponseEntity.ok(response);
-  }
-
   @PostMapping("/onboarding/birth-date")
   public ResponseEntity<OnboardingResponse> updateBirthDate(
       @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -78,16 +65,6 @@ public class MemberController implements MemberControllerDocs {
   ) {
     request.setMemberId(userDetails.getMemberId());
     OnboardingResponse response = memberService.updateGender(request);
-    return ResponseEntity.ok(response);
-  }
-
-  @PostMapping("/onboarding/interests")
-  public ResponseEntity<OnboardingResponse> updateInterests(
-      @AuthenticationPrincipal CustomUserDetails userDetails,
-      @Valid @RequestBody UpdateInterestsRequest request
-  ) {
-    request.setMemberId(userDetails.getMemberId());
-    OnboardingResponse response = memberService.updateInterests(request);
     return ResponseEntity.ok(response);
   }
 
@@ -126,13 +103,6 @@ public class MemberController implements MemberControllerDocs {
   public ResponseEntity<MemberDto> getMemberByEmail(@PathVariable String email) {
     MemberDto dto = memberService.getMemberByEmail(email);
     return ResponseEntity.ok(dto);
-  }
-
-  @GetMapping("/{memberId}/interests")
-  @Override
-  public ResponseEntity<List<InterestDto>> getInterestsByMemberId(@PathVariable UUID memberId) {
-    List<InterestDto> interestDtos = memberService.getInterestsByMemberId(memberId);
-    return ResponseEntity.ok(interestDtos);
   }
 
   @GetMapping("/check-name")

@@ -91,8 +91,25 @@ public class AiCallbackRequest {
     @NotNull(message = "address는 필수입니다.")
     private String address;
 
+    @Schema(description = "위도", example = "37.563476", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "latitude는 필수입니다.")
+    private Double latitude;
+
+    @Schema(description = "경도", example = "126.983920", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "longitude는 필수입니다.")
+    private Double longitude;
+
     @Schema(description = "국가 코드 (ISO 3166-1 alpha-2)", example = "KR")
     private String country;
+
+    @Schema(description = "카테고리", example = "한식 음식점")
+    private String category;
+
+    @Schema(description = "전화번호", example = "02-776-5348")
+    private String phone;
+
+    @Schema(description = "영업시간", example = "매일 10:30 - 21:30")
+    private String openingHours;
 
     @Schema(description = "장소 설명", example = "칼국수와 만두로 유명한 맛집")
     private String description;
@@ -102,5 +119,8 @@ public class AiCallbackRequest {
 
     @Schema(description = "언어 코드 (ISO 639-1)", example = "ko", allowableValues = {"ko", "en", "ja", "zh"})
     private String language = "ko";
+
+    @Schema(description = "키워드 목록", example = "[\"#명동맛집\", \"#칼국수\", \"#만두\"]")
+    private List<String> keywords;
   }
 }

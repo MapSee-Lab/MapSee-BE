@@ -18,6 +18,11 @@ allprojects {
 		maven {
 			url "https://nexus.suhsaechan.kr/repository/maven-releases/"
 		}
+		// Suh-Nexus (insecure)
+		maven {
+			url "http://suh-project.synology.me:9999/repository/maven-releases/"
+			allowInsecureProtocol = true
+		}
 	}
 }
 

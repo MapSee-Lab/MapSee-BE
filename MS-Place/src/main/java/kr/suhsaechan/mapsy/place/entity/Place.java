@@ -1,7 +1,13 @@
 package kr.suhsaechan.mapsy.place.entity;
 
 import kr.suhsaechan.mapsy.common.entity.SoftDeletableBaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import lombok.AccessLevel;
@@ -12,6 +18,7 @@ import lombok.AllArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -58,6 +65,9 @@ public class Place extends SoftDeletableBaseEntity {
   @Column(length = 50)
   private String phone;
 
+  @Column(length = 500)
+  private String openingHours;    //영업시간
+
   @Column(columnDefinition = "TEXT")
   private String description;     //요약 설명
 
@@ -82,4 +92,33 @@ public class Place extends SoftDeletableBaseEntity {
   @JdbcTypeCode(SqlTypes.ARRAY)
   private List<String> photoUrls; //사진 URL 배열 (최대 10개)
 
+  /**
+   * 이 장소와 연결된 키워드 목록
+   * - PlaceKeyword 중간 테이블을 통한 다대다 관계
+   */
+  @OneToMany(mappedBy = "place", cascade = CascadeType.ALL, orphanRemoval = true)
+  @Builder.Default
+  private List<PlaceKeyword> placeKeywords = new ArrayList<>();
+
+  /**
+   * 키워드 추가
+   * - PlaceKeyword 연결 생성 및 양방향 관계 설정
+   *
+   * @param keyword 추가할 키워드
+   */
+  public void addKeyword(Keyword keyword) {
+    PlaceKeyword placeKeyword = PlaceKeyword.of(this, keyword);
+    this.placeKeywords.add(placeKeyword);
+    keyword.getPlaceKeywords().add(placeKeyword);
+  }
+
+  /**
+   * 키워드 제거
+   *
+   * @param keyword 제거할 키워드
+   */
+  public void removeKeyword(Keyword keyword) {
+    this.placeKeywords.removeIf(pk -> pk.getKeyword().equals(keyword));
+    keyword.getPlaceKeywords().removeIf(pk -> pk.getPlace().equals(this));
+  }
 }

@@ -3,7 +3,6 @@ package kr.suhsaechan.mapsy.web.controller;
 import kr.suhsaechan.mapsy.auth.dto.CustomUserDetails;
 import kr.suhsaechan.mapsy.common.constant.Author;
 import kr.suhsaechan.mapsy.member.dto.CheckNameResponse;
-import kr.suhsaechan.mapsy.member.dto.InterestDto;
 import kr.suhsaechan.mapsy.member.dto.MemberDto;
 import kr.suhsaechan.mapsy.member.dto.ProfileUpdateRequest;
 import kr.suhsaechan.mapsy.member.dto.UpdateServiceAgreementTermsRequest;
@@ -11,8 +10,6 @@ import kr.suhsaechan.mapsy.member.dto.UpdateServiceAgreementTermsResponse;
 import kr.suhsaechan.mapsy.member.dto.onboarding.response.OnboardingResponse;
 import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateBirthDateRequest;
 import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateGenderRequest;
-import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateInterestsRequest;
-import kr.suhsaechan.mapsy.member.dto.onboarding.request.UpdateNameRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import kr.suhsaechan.suhapilog.annotation.ApiLog;
@@ -67,7 +64,7 @@ public interface MemberControllerDocs {
               - **`isMarketingAgreed`**: 마케팅 수신 동의 여부 (선택)
               
               ## 반환값 (UpdateServiceAgreementTermsResponse)
-              - **`currentStep`**: 현재 온보딩 단계 (TERMS, NAME, BIRTH_DATE, GENDER, INTERESTS, COMPLETED)
+              - **`currentStep`**: 현재 온보딩 단계 (TERMS, BIRTH_DATE, GENDER, COMPLETED)
               - **`onboardingStatus`**: 온보딩 상태 (NOT_STARTED, IN_PROGRESS, COMPLETED)
               - **`member`**: 회원 정보 (디버깅용)
               
@@ -83,29 +80,6 @@ public interface MemberControllerDocs {
   ResponseEntity<UpdateServiceAgreementTermsResponse> agreeMemberTerms(
       @AuthenticationPrincipal CustomUserDetails userDetails,
       @Valid UpdateServiceAgreementTermsRequest request);
-
-  @ApiLog(date = "2025.01.15", author = Author.SUHSAECHAN, issueNumber = 22, description = "온보딩 이름 설정 API 추가")
-  @Operation(summary = "이름 설정", description = """
-              ## 인증(JWT): **필요**
-              
-              ## 요청 파라미터 (UpdateNameRequest)
-              - **`name`**: 이름 (필수, 2자 이상 50자 이하)
-              
-              ## 반환값 (OnboardingResponse)
-              - **`currentStep`**: 현재 온보딩 단계
-              - **`onboardingStatus`**: 온보딩 상태
-              - **`member`**: 회원 정보 (디버깅용)
-              
-              ## 특이사항
-              - 온보딩 단계 중 이름 설정 단계를 완료합니다.
-              
-              ## 에러코드
-              - **`MEMBER_NOT_FOUND`**: 회원을 찾을 수 없습니다.
-              - **`INVALID_INPUT_VALUE`**: 유효하지 않은 입력값입니다.
-              """)
-  ResponseEntity<OnboardingResponse> updateName(
-      @AuthenticationPrincipal CustomUserDetails userDetails,
-      @Valid UpdateNameRequest request);
 
   @ApiLog(date = "2025.01.15", author = Author.SUHSAECHAN, issueNumber = 22, description = "온보딩 생년월일 설정 API 추가")
   @Operation(summary = "생년월일 설정", description = """
@@ -152,31 +126,6 @@ public interface MemberControllerDocs {
   ResponseEntity<OnboardingResponse> updateGender(
       @AuthenticationPrincipal CustomUserDetails userDetails,
       @Valid UpdateGenderRequest request);
-
-  @ApiLog(date = "2025.01.15", author = Author.SUHSAECHAN, issueNumber = 22, description = "온보딩 관심사 설정 API 추가")
-  @Operation(summary = "관심사 설정", description = """
-              ## 인증(JWT): **필요**
-              
-              ## 요청 파라미터 (UpdateInterestsRequest)
-              - **`interestIds`**: 관심사 ID 목록 (필수, 최소 1개 이상)
-              
-              ## 반환값 (OnboardingResponse)
-              - **`currentStep`**: 현재 온보딩 단계
-              - **`onboardingStatus`**: 온보딩 상태
-              - **`member`**: 회원 정보 (디버깅용)
-              
-              ## 특이사항
-              - 온보딩 단계 중 관심사 설정 단계를 완료합니다.
-              - 기존 관심사는 전체 삭제 후 새로 추가됩니다 (전체 교체).
-              
-              ## 에러코드
-              - **`MEMBER_NOT_FOUND`**: 회원을 찾을 수 없습니다.
-              - **`INVALID_INPUT_VALUE`**: 유효하지 않은 입력값입니다.
-              - **`INTEREST_NOT_FOUND`**: 유효하지 않은 관심사 ID가 포함되어 있습니다.
-              """)
-  ResponseEntity<OnboardingResponse> updateInterests(
-      @AuthenticationPrincipal CustomUserDetails userDetails,
-      @Valid UpdateInterestsRequest request);
 
   @ApiLog(date = "2025.10.16", author = Author.SUHSAECHAN, issueNumber = 22, description = "회원 관리 API 문서화")
   @Operation(summary = "전체 회원 목록 조회", description = """
@@ -262,8 +211,7 @@ public interface MemberControllerDocs {
               - **`name`**: 이름 (필수)
               - **`gender`**: 성별 (MALE, FEMALE, NONE)
               - **`birthDate`**: 생년월일 (LocalDate 형식)
-              - **`interestIds`**: 관심사 ID 목록
-              
+
               ## 반환값 (MemberDto)
               - **`memberId`**: 회원 ID
               - **`email`**: 회원 이메일
@@ -275,8 +223,7 @@ public interface MemberControllerDocs {
               ## 특이사항
               - 회원 프로필 정보를 업데이트합니다.
               - 이름 중복 검사가 수행됩니다.
-              - 관심사도 함께 업데이트됩니다.
-              
+
               ## 에러코드
               - **`MEMBER_NOT_FOUND`**: 회원을 찾을 수 없습니다.
               - **`NAME_ALREADY_EXISTS`**: 이미 사용 중인 이름입니다.
@@ -285,26 +232,6 @@ public interface MemberControllerDocs {
   ResponseEntity<MemberDto> updateProfile(
       @AuthenticationPrincipal CustomUserDetails userDetails,
       @Valid ProfileUpdateRequest request);
-
-  @ApiLog(date = "2025.10.16", author = Author.SUHSAECHAN, issueNumber = 22, description = "회원 관리 API 문서화")
-  @Operation(summary = "회원 관심사 조회 (ID)", description = """
-              ## 인증(JWT): **불필요**
-
-              ## 요청 파라미터
-              - **`memberId`**: 회원 ID (Path Variable)
-
-              ## 반환값 (List<InterestDto>)
-              - **`id`**: 관심사 ID
-              - **`name`**: 관심사 이름
-
-              ## 특이사항
-              - 회원 ID로 해당 회원의 관심사 목록을 조회합니다.
-
-              ## 에러코드
-              - **`MEMBER_NOT_FOUND`**: 회원을 찾을 수 없습니다.
-              - **`INVALID_INPUT_VALUE`**: 유효하지 않은 입력값입니다.
-              """)
-  ResponseEntity<List<InterestDto>> getInterestsByMemberId(UUID memberId);
 
   @ApiLog(date = "2025.11.23", author = Author.SUHSAECHAN, issueNumber = 106, description = "닉네임 중복 확인 API 추가")
   @Operation(summary = "닉네임 중복 확인", description = """

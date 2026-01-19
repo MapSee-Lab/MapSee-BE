@@ -1,9 +1,7 @@
 package kr.suhsaechan.mapsy.auth.dto;
 
 import kr.suhsaechan.mapsy.common.constant.DeviceType;
-import kr.suhsaechan.mapsy.common.constant.SocialPlatform;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
@@ -15,20 +13,10 @@ import lombok.*;
 @NoArgsConstructor
 public class SignInRequest {
 
-  @Schema(description = "로그인 플랫폼 (KAKAO, GOOGLE 등)", example = "KAKAO")
-  private SocialPlatform socialPlatform;
-
-  @NotBlank(message = "이메일은 필수입니다.")
-  @Email(message = "올바른 이메일 형식이 아닙니다.")
-  @Schema(description = "소셜 로그인 후 반환된 이메일", example = "user@example.com")
-  private String email;
-
-  @NotBlank(message = "이름은 필수입니다.")
-  @Schema(description = "소셜 로그인 후 반환된 닉네임", example = "홍길동")
-  private String name;
-
-  @Schema(description = "소셜 로그인 후 반환된 프로필 URL", example = "https://example.com/profile.jpg")
-  private String profileUrl;
+  @NotBlank(message = "Firebase ID Token은 필수입니다.")
+  @Schema(description = "Firebase ID Token (클라이언트에서 Firebase 인증 후 전달)",
+      example = "eyJhbGciOiJSUzI1NiIsImtpZCI6...")
+  private String firebaseIdToken;
 
   @Schema(description = "FCM 푸시 알림 토큰 (선택)", example = "dXQzM2k1N2RkZjM0OGE3YjczZGY5...")
   private String fcmToken;
