@@ -2,7 +2,7 @@
 
 <!-- 수정하지마세요 자동으로 동기화 됩니다 -->
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## 최신 버전 : v0.1.8 (2026-01-18)
+## 최신 버전 : v0.1.13 (2026-01-19)
 
 [전체 버전 기록 보기](CHANGELOG.md)
 
