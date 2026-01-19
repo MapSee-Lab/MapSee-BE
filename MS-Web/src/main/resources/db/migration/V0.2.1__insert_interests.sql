@@ -1,5 +1,5 @@
 -- ============================================
--- Tripgether Interest Data Migration
+-- Mapsy Interest Data Migration
 -- Version: 0.2.1
 -- Description: 14개 대분류, 123개 소분류 관심사 초기화
 -- - 테이블이 없으면 아무 작업도 하지 않음 (JPA가 자동 생성)

@@ -17,7 +17,7 @@ public class AiServerProperties {
 
   /**
    * AI 서버 Base URL
-   * 예: https://ai.tripgether.suhsaechan.kr
+   * 예: https://ai.mapsy.suhsaechan.kr
    */
   private String baseUrl;
 

@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
 
 @OpenAPIDefinition(
     info = @io.swagger.v3.oas.annotations.info.Info(
-        title = "📚 Tripgether : 여행의 동반자 📚",
+        title = "📚 Mapsy 📚",
         description = """
             ### http://suh-project.synology.me:8093
             """
@@ -28,7 +28,7 @@ public class SwaggerConfig {
   private final SpringDocProperties springDocProperties;
 
   @Bean
-  public OpenAPI tripgetherOpenAPI() {
+  public OpenAPI mapsyOpenAPI() {
     SecurityScheme bearerAuth = new SecurityScheme()
         .type(SecurityScheme.Type.HTTP)
         .scheme("bearer")
@@ -41,11 +41,8 @@ public class SwaggerConfig {
         .addSecurityItem(new SecurityRequirement().addList("Bearer Token"))
         .servers(List.of(
             new io.swagger.v3.oas.models.servers.Server()
-                .url("https://api.tripgether.suhsaechan.kr")
+                .url("https://api.mapsy.suhsaechan.kr")
                 .description("메인 서버"),
-            new io.swagger.v3.oas.models.servers.Server()
-                .url("https://api.test.tripgether.suhsaechan.kr")
-                .description("테스트 서버"),
             new io.swagger.v3.oas.models.servers.Server()
                 .url("http://localhost:8080")
                 .description("로컬 서버")
