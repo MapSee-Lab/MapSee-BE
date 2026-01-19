@@ -3,7 +3,7 @@ package kr.suhsaechan.mapsy.member.service;
 import kr.suhsaechan.mapsy.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.suhsaechan.suhrandomengine.core.SuhRandomKit;
+import me.suhsaechan.suhnicknamegenerator.core.SuhRandomKit;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 

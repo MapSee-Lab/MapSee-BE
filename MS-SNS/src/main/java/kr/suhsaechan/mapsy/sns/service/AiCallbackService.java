@@ -1,5 +1,6 @@
 package kr.suhsaechan.mapsy.sns.service;
 
+import java.util.Collections;
 import kr.suhsaechan.mapsy.ai.dto.AiCallbackRequest;
 import kr.suhsaechan.mapsy.ai.dto.AiCallbackResponse;
 import kr.suhsaechan.mapsy.common.constant.ContentStatus;
@@ -304,7 +305,7 @@ public class AiCallbackService {
 
       // 선택 필드 설정
       if (placeInfo.getCategory() != null) {
-        newPlace.setTypes(placeInfo.getCategory());
+        newPlace.setTypes(Collections.singletonList(placeInfo.getCategory()));
       }
       if (placeInfo.getPhone() != null) {
         newPlace.setPhone(placeInfo.getPhone());
@@ -339,7 +340,7 @@ public class AiCallbackService {
       place.setCountry(placeInfo.getCountry());
     }
     if (placeInfo.getCategory() != null) {
-      place.setTypes(placeInfo.getCategory());
+      place.setTypes(Collections.singletonList(placeInfo.getCategory()));
     }
     if (placeInfo.getPhone() != null) {
       place.setPhone(placeInfo.getPhone());

@@ -75,7 +75,7 @@ jobs:
       github.event.action == 'opened' &&
       (
         github.event_name == 'issues' ||
-        (github.event_name == 'pull_request' && env.ENABLE_PR_AUTO_ADD == 'true')
+        (github.event_name == 'pull_request' && false)
       )
     runs-on: ubuntu-latest
     steps:
@@ -342,7 +342,7 @@ jobs:
       github.event.action == 'closed' &&
       (
         github.event_name == 'issues' ||
-        (github.event_name == 'pull_request' && env.ENABLE_PR_AUTO_CLOSE == 'true')
+        (github.event_name == 'pull_request' && false)
       )
     runs-on: ubuntu-latest
     steps:
