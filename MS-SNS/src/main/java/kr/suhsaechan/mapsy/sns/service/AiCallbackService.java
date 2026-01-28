@@ -1,7 +1,9 @@
 package kr.suhsaechan.mapsy.sns.service;
 
-import java.util.Collections;
 import kr.suhsaechan.mapsy.ai.dto.AiCallbackRequest;
+import kr.suhsaechan.mapsy.ai.dto.AiCallbackRequest.PlaceDetailCallback;
+import kr.suhsaechan.mapsy.ai.dto.AiCallbackRequest.SnsInfoCallback;
+import kr.suhsaechan.mapsy.ai.dto.AiCallbackRequest.ExtractionStatistics;
 import kr.suhsaechan.mapsy.ai.dto.AiCallbackResponse;
 import kr.suhsaechan.mapsy.common.constant.ContentStatus;
 import kr.suhsaechan.mapsy.common.exception.CustomException;
@@ -27,6 +29,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,7 +40,11 @@ import java.util.Optional;
 import java.util.UUID;
 import kr.suhsaechan.mapsy.member.service.FcmService;
 
-// AI 서버 Webhook Callback 처리
+/**
+ * AI 서버 Webhook Callback 처리
+ *
+ * @see <a href="https://github.com/MapSee-Lab/MapSy-BE/issues/16">GitHub Issue #16</a>
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -53,42 +62,31 @@ public class AiCallbackService {
   /**
    * AI 서버로부터 받은 Callback 처리
    *
-   * - SUCCESS면 Place 저장
-   * - FAILED면 상태만 변경
-   *
    * @param request AI Callback 요청
    * @return AI Callback 응답
    */
   @Transactional
   public AiCallbackResponse processAiServerCallback(AiCallbackRequest request) {
-    // contentId 추출: 최상위 contentId 우선, 없으면 ContentInfo에서 추출
-    UUID contentId = request.getContentId() != null
-        ? request.getContentId()
-        : (request.getContentInfo() != null && request.getContentInfo().getContentId() != null
-            ? request.getContentInfo().getContentId()
-            : null);
+    UUID contentId = request.getContentId();
 
     if (contentId == null) {
-      log.error("ContentInfo or contentId is null in callback request. resultStatus={}", request.getResultStatus());
+      log.error("contentId is null in callback request. resultStatus={}", request.getResultStatus());
       throw new CustomException(ErrorCode.INVALID_REQUEST);
     }
 
     log.info("Processing AI callback: contentId={}, resultStatus={}",
         contentId, request.getResultStatus());
 
-    // Content 조회 - 없으면 예외 발생
+    // Content 조회
     Content content = contentRepository.findById(contentId)
         .orElseThrow(() -> new CustomException(ErrorCode.CONTENT_NOT_FOUND));
 
     // 결과 상태에 따라 분기 처리
     if ("SUCCESS".equals(request.getResultStatus())) {
-      // 성공 - Place 데이터 저장
-      processAiServerSuccessCallback(content, request);
+      processSuccessCallback(content, request);
     } else if ("FAILED".equals(request.getResultStatus())) {
-      // 실패 - Content 상태만 FAILED로 변경
       processFailedCallback(content, request);
     } else {
-      // 알 수 없는 상태값 - 에러 처리
       log.error("Unknown resultStatus: {}", request.getResultStatus());
       throw new CustomException(ErrorCode.INVALID_REQUEST);
     }
@@ -103,120 +101,122 @@ public class AiCallbackService {
 
   /**
    * 성공 Callback 처리
-   *
-   * - Content가 COMPLETED 상태: 기존 ContentPlace 삭제 후 재생성 (업데이트 모드)
-   * - Content가 PENDING/FAILED 상태: 신규 ContentPlace 생성
-   * - TODO: AI 서버에서 받은 Place 정보로 직접 Place 생성 (나중에 구현 예정)
-   *
-   * @param content 대상 Content
-   * @param request AI Callback 요청
    */
-  private void processAiServerSuccessCallback(Content content, AiCallbackRequest request) {
+  private void processSuccessCallback(Content content, AiCallbackRequest request) {
     log.debug("Processing SUCCESS callback for contentId={}", content.getId());
+
+    // statistics 로깅 (DB 저장 안 함)
+    logStatistics(content.getId(), request.getStatistics());
 
     // Content가 이미 COMPLETED 상태인지 확인 (재처리 요청 판단용)
     boolean isContentAlreadyCompleted = (content.getStatus() == ContentStatus.COMPLETED);
 
     if (isContentAlreadyCompleted) {
-      // 업데이트 모드 - 기존 ContentPlace 모두 삭제
       log.info("Content already COMPLETED. Updating existing data: contentId={}", content.getId());
       contentPlaceRepository.deleteByContentIdWithFlush(content.getId());
       log.debug("Deleted existing ContentPlaces for contentId={}", content.getId());
     }
 
-    // Content 상태를 COMPLETED로 변경 (신규 또는 재처리 모두)
+    // Content 상태를 COMPLETED로 변경
     content.setStatus(ContentStatus.COMPLETED);
 
-    // ContentInfo로 Content 메타데이터 업데이트
-    updateContentWithContentInfo(content, request);
+    // SnsInfo로 Content 메타데이터 업데이트
+    updateContentWithSnsInfo(content, request.getSnsInfo());
 
     contentRepository.save(content);
 
-    // AI 서버에서 받은 Place 정보로 Place 생성 및 Content 연결
+    // Place 생성 및 Content 연결
     int placeCount = 0;
-    if (request.getPlaces() != null && !request.getPlaces().isEmpty()) {
-      List<AiCallbackRequest.PlaceInfo> placeInfos = request.getPlaces();
+    if (request.getPlaceDetails() != null && !request.getPlaceDetails().isEmpty()) {
+      List<PlaceDetailCallback> placeDetails = request.getPlaceDetails();
       log.info("Received {} places for contentId={} (update mode: {}). Starting Place creation.",
-          placeInfos.size(), content.getId(), isContentAlreadyCompleted);
+          placeDetails.size(), content.getId(), isContentAlreadyCompleted);
 
-      // Place 생성 및 ContentPlace 연결
       List<Place> savedPlaces = new ArrayList<>();
-      for (AiCallbackRequest.PlaceInfo placeInfo : placeInfos) {
+      int position = 0;
+      for (PlaceDetailCallback placeDetail : placeDetails) {
         try {
-          // 좌표 검증
-          if (placeInfo.getLatitude() == null || placeInfo.getLongitude() == null) {
-            log.error("Missing coordinates for place: {}. Skipping.", placeInfo.getName());
-            continue;
-          }
-
           // Place 생성 또는 조회
-          Place place = createOrGetPlaceFromAiData(placeInfo);
+          Place place = createOrGetPlaceFromPlaceDetail(placeDetail);
           savedPlaces.add(place);
 
-          // ContentPlace 연결 (중복 체크)
-          createContentPlace(content, place);
+          // ContentPlace 연결 (순서 포함)
+          createContentPlace(content, place, position++);
 
           // 키워드 연결
-          if (placeInfo.getKeywords() != null && !placeInfo.getKeywords().isEmpty()) {
-            keywordService.linkKeywordsToPlace(place, placeInfo.getKeywords());
-            log.debug("Linked {} keywords to place: {}", placeInfo.getKeywords().size(), place.getName());
+          if (placeDetail.getKeywords() != null && !placeDetail.getKeywords().isEmpty()) {
+            keywordService.linkKeywordsToPlace(place, placeDetail.getKeywords());
+            log.debug("Linked {} keywords to place: {}", placeDetail.getKeywords().size(), place.getName());
           }
 
           log.debug("Successfully processed place: {} (id={})", place.getName(), place.getId());
         } catch (Exception e) {
-          log.error("Failed to process place: {}. Error: {}", placeInfo.getName(), e.getMessage(), e);
-          // 개별 장소 처리 실패 시 계속 진행 (다른 장소는 저장)
+          log.error("Failed to process place: {}. Error: {}", placeDetail.getName(), e.getMessage(), e);
         }
       }
 
       placeCount = savedPlaces.size();
       log.info("Successfully saved {} out of {} places for contentId={}",
-          placeCount, placeInfos.size(), content.getId());
+          placeCount, placeDetails.size(), content.getId());
     } else {
-      // Place 데이터가 없는 경우 경고 로그
       log.warn("No places found in callback for contentId={}", content.getId());
     }
 
-    // AI 분석 완료 후 모든 요청 회원에게 알림 전송
-    sendContentCompleteNotification(content, request, placeCount);
+    // 알림 전송
+    sendContentCompleteNotification(content, placeCount);
   }
 
   /**
-   * ContentInfo로 Content 메타데이터 업데이트
-   *
-   * null이 아닌 필드만 업데이트하여 기존 데이터 보존
-   *
-   * @param content 대상 Content
-   * @param request AI Callback 요청
+   * statistics 로깅
    */
-  private void updateContentWithContentInfo(Content content, AiCallbackRequest request) {
-    AiCallbackRequest.ContentInfo contentInfo = request.getContentInfo();
-
-    if (contentInfo == null) {
-      log.warn("ContentInfo is null for contentId={}. Skipping metadata update.", content.getId());
+  private void logStatistics(UUID contentId, ExtractionStatistics statistics) {
+    if (statistics == null) {
       return;
     }
 
-    // title 업데이트 (null이 아닐 때만)
-    if (contentInfo.getTitle() != null) {
-      content.setTitle(contentInfo.getTitle());
+    log.info("Extraction statistics for contentId={}: totalExtracted={}, totalFound={}, failedSearches={}",
+        contentId,
+        statistics.getTotalExtracted(),
+        statistics.getTotalFound(),
+        statistics.getFailedSearches() != null ? statistics.getFailedSearches() : "[]");
+
+    if (statistics.getExtractedPlaceNames() != null) {
+      log.debug("Extracted place names for contentId={}: {}", contentId, statistics.getExtractedPlaceNames());
+    }
+  }
+
+  /**
+   * SnsInfo로 Content 메타데이터 업데이트
+   */
+  private void updateContentWithSnsInfo(Content content, SnsInfoCallback snsInfo) {
+    if (snsInfo == null) {
+      log.warn("SnsInfo is null for contentId={}. Skipping metadata update.", content.getId());
+      return;
     }
 
-    // thumbnailUrl 업데이트 (null이 아닐 때만)
-    if (contentInfo.getThumbnailUrl() != null) {
-      content.setThumbnailUrl(contentInfo.getThumbnailUrl());
+    // platform 업데이트
+    if (snsInfo.getPlatform() != null) {
+      try {
+        content.setPlatform(kr.suhsaechan.mapsy.sns.constant.ContentPlatform.valueOf(snsInfo.getPlatform()));
+      } catch (IllegalArgumentException e) {
+        log.error("Invalid platform value: {}. Keeping existing platform for contentId={}",
+            snsInfo.getPlatform(), content.getId());
+      }
     }
 
-    // contentUrl 업데이트 (null이 아닐 때만) - originalUrl에 매핑
-    if (contentInfo.getContentUrl() != null) {
-      String newUrl = contentInfo.getContentUrl();
-      // 현재 URL과 같으면 업데이트 스킵
+    // contentType 업데이트
+    if (snsInfo.getContentType() != null) {
+      content.setContentType(snsInfo.getContentType());
+    }
+
+    // url → originalUrl 업데이트
+    if (snsInfo.getUrl() != null) {
+      String newUrl = snsInfo.getUrl();
       if (!newUrl.equals(content.getOriginalUrl())) {
-        // 다른 Content에 이미 존재하는지 확인 (unique constraint 위반 방지)
         Optional<Content> existingContent = contentRepository.findByOriginalUrl(newUrl);
         if (existingContent.isPresent() && !existingContent.get().getId().equals(content.getId())) {
           log.warn("Cannot update originalUrl: URL already exists in another Content. " +
-              "currentContentId={}, existingContentId={}, url={}",
+                  "currentContentId={}, existingContentId={}, url={}",
               content.getId(), existingContent.get().getId(), newUrl);
         } else {
           content.setOriginalUrl(newUrl);
@@ -224,144 +224,267 @@ public class AiCallbackService {
       }
     }
 
-    // platformUploader 업데이트 (null이 아닐 때만)
-    if (contentInfo.getPlatformUploader() != null) {
-      content.setPlatformUploader(contentInfo.getPlatformUploader());
+    // author → platformUploader 업데이트
+    if (snsInfo.getAuthor() != null) {
+      content.setPlatformUploader(snsInfo.getAuthor());
     }
 
-    // summary 업데이트 (null이 아닐 때만)
-    if (contentInfo.getSummary() != null) {
-      content.setSummary(contentInfo.getSummary());
+    // caption 업데이트
+    if (snsInfo.getCaption() != null) {
+      content.setCaption(snsInfo.getCaption());
     }
 
-    // platform 업데이트 (null이 아닐 때만)
-    if (contentInfo.getPlatform() != null) {
+    // likesCount 업데이트
+    if (snsInfo.getLikesCount() != null) {
+      content.setLikesCount(snsInfo.getLikesCount());
+    }
+
+    // commentsCount 업데이트
+    if (snsInfo.getCommentsCount() != null) {
+      content.setCommentsCount(snsInfo.getCommentsCount());
+    }
+
+    // postedAt 업데이트 (ISO 8601 파싱)
+    if (snsInfo.getPostedAt() != null) {
       try {
-        content.setPlatform(kr.suhsaechan.mapsy.sns.constant.ContentPlatform.valueOf(contentInfo.getPlatform()));
-      } catch (IllegalArgumentException e) {
-        log.error("Invalid platform value: {}. Keeping existing platform for contentId={}",
-            contentInfo.getPlatform(), content.getId());
+        OffsetDateTime odt = OffsetDateTime.parse(snsInfo.getPostedAt());
+        content.setPostedAt(odt.toLocalDateTime());
+      } catch (DateTimeParseException e) {
+        log.warn("Failed to parse postedAt: {}. Skipping.", snsInfo.getPostedAt());
       }
     }
 
-    log.debug("Updated Content with ContentInfo: contentId={}, title={}, summary={}, platformUploader={}",
+    // hashtags 업데이트
+    if (snsInfo.getHashtags() != null) {
+      content.setHashtags(snsInfo.getHashtags());
+    }
+
+    // thumbnailUrl 업데이트
+    if (snsInfo.getThumbnailUrl() != null) {
+      content.setThumbnailUrl(snsInfo.getThumbnailUrl());
+    }
+
+    // imageUrls 업데이트
+    if (snsInfo.getImageUrls() != null) {
+      content.setImageUrls(snsInfo.getImageUrls());
+    }
+
+    // authorProfileImageUrl 업데이트
+    if (snsInfo.getAuthorProfileImageUrl() != null) {
+      content.setAuthorProfileImageUrl(snsInfo.getAuthorProfileImageUrl());
+    }
+
+    log.debug("Updated Content with SnsInfo: contentId={}, platform={}, contentType={}, author={}",
         content.getId(),
-        contentInfo.getTitle() != null ? contentInfo.getTitle() : "(unchanged)",
-        contentInfo.getSummary() != null ? contentInfo.getSummary().substring(0, Math.min(30, contentInfo.getSummary().length())) + "..." : "(unchanged)",
-        contentInfo.getPlatformUploader() != null ? contentInfo.getPlatformUploader() : "(unchanged)");
+        snsInfo.getPlatform(),
+        snsInfo.getContentType(),
+        snsInfo.getAuthor());
   }
 
   /**
    * 실패 Callback 처리
-   *
-   * Content 상태를 FAILED로 변경
-   *
-   * @param content 대상 Content
-   * @param request AI Callback 요청
    */
   private void processFailedCallback(Content content, AiCallbackRequest request) {
-    log.error("Processing FAILED callback for contentId={}", content.getId());
+    log.error("Processing FAILED callback for contentId={}, errorMessage={}",
+        content.getId(), request.getErrorMessage());
 
-    // Content 상태를 FAILED로 변경하고 저장
     content.setStatus(ContentStatus.FAILED);
     contentRepository.save(content);
   }
 
   /**
-   * AI 서버 응답 데이터로부터 Place 생성 또는 조회
-   * <p>
-   * 위도/경도 기반 중복 체크 후 기존 Place 업데이트 또는 신규 생성
+   * PlaceDetail로부터 Place 생성 또는 조회
    *
-   * @param placeInfo AI 서버 응답 장소 정보
-   * @return 생성 또는 업데이트된 Place
+   * 중복 체크 순서:
+   * 1. naverPlaceId로 PlacePlatformReference 검색
+   * 2. name + 좌표로 기존 Place 검색
+   * 3. 없으면 신규 생성 + PlacePlatformReference 생성
    */
-  private Place createOrGetPlaceFromAiData(AiCallbackRequest.PlaceInfo placeInfo) {
-    BigDecimal latitude = BigDecimal.valueOf(placeInfo.getLatitude());
-    BigDecimal longitude = BigDecimal.valueOf(placeInfo.getLongitude());
+  private Place createOrGetPlaceFromPlaceDetail(PlaceDetailCallback placeDetail) {
+    // 1. naverPlaceId로 중복 체크
+    if (placeDetail.getPlaceId() != null) {
+      Optional<PlacePlatformReference> existingRef = placePlatformReferenceRepository
+          .findByPlacePlatformAndPlacePlatformId(PlacePlatform.NAVER, placeDetail.getPlaceId());
 
-    // 이름+좌표로 중복 체크
-    Optional<Place> existing = placeRepository.findByNameAndLatitudeAndLongitude(
-        placeInfo.getName(),
-        latitude,
-        longitude
-    );
+      if (existingRef.isPresent()) {
+        Place existingPlace = existingRef.get().getPlace();
+        updatePlaceFromPlaceDetail(existingPlace, placeDetail);
+        log.debug("Found existing place by naverPlaceId: id={}, name={}", existingPlace.getId(), existingPlace.getName());
+        return placeRepository.save(existingPlace);
+      }
+    }
 
-    if (existing.isPresent()) {
-      // 기존 Place 업데이트
-      Place place = existing.get();
-      updatePlaceFromAiData(place, placeInfo);
-      log.debug("Updated existing place: id={}, name={}, address={}",
-          place.getId(), place.getName(), place.getAddress());
-      return placeRepository.save(place);
-    } else {
-      // 새로 생성
-      Place newPlace = Place.builder()
-          .name(placeInfo.getName())
-          .address(placeInfo.getAddress())
-          .latitude(latitude)
-          .longitude(longitude)
-          .country(placeInfo.getCountry())
+    // 2. name + 좌표로 중복 체크 (fallback)
+    if (placeDetail.getLatitude() != null && placeDetail.getLongitude() != null) {
+      BigDecimal latitude = BigDecimal.valueOf(placeDetail.getLatitude());
+      BigDecimal longitude = BigDecimal.valueOf(placeDetail.getLongitude());
+
+      Optional<Place> existing = placeRepository.findByNameAndLatitudeAndLongitude(
+          placeDetail.getName(),
+          latitude,
+          longitude
+      );
+
+      if (existing.isPresent()) {
+        Place existingPlace = existing.get();
+        updatePlaceFromPlaceDetail(existingPlace, placeDetail);
+
+        // PlacePlatformReference가 없으면 생성
+        createPlacePlatformReferenceIfNotExists(existingPlace, placeDetail.getPlaceId());
+
+        log.debug("Found existing place by name+coords: id={}, name={}", existingPlace.getId(), existingPlace.getName());
+        return placeRepository.save(existingPlace);
+      }
+    }
+
+    // 3. 신규 Place 생성
+    Place newPlace = createNewPlace(placeDetail);
+    Place savedPlace = placeRepository.save(newPlace);
+
+    // PlacePlatformReference 생성
+    createPlacePlatformReferenceIfNotExists(savedPlace, placeDetail.getPlaceId());
+
+    log.debug("Created new place: id={}, name={}, naverPlaceId={}",
+        savedPlace.getId(), savedPlace.getName(), placeDetail.getPlaceId());
+    return savedPlace;
+  }
+
+  /**
+   * 새 Place 엔티티 생성
+   */
+  private Place createNewPlace(PlaceDetailCallback placeDetail) {
+    BigDecimal latitude = placeDetail.getLatitude() != null
+        ? BigDecimal.valueOf(placeDetail.getLatitude())
+        : BigDecimal.ZERO;
+    BigDecimal longitude = placeDetail.getLongitude() != null
+        ? BigDecimal.valueOf(placeDetail.getLongitude())
+        : BigDecimal.ZERO;
+
+    Place place = Place.builder()
+        .name(placeDetail.getName())
+        .address(placeDetail.getAddress())
+        .roadAddress(placeDetail.getRoadAddress())
+        .latitude(latitude)
+        .longitude(longitude)
+        .country("KR")  // 기본값
+        .build();
+
+    // 모든 필드 설정
+    updatePlaceFromPlaceDetail(place, placeDetail);
+
+    return place;
+  }
+
+  /**
+   * PlaceDetail로 기존 Place 업데이트
+   */
+  private void updatePlaceFromPlaceDetail(Place place, PlaceDetailCallback placeDetail) {
+    // 기본 정보
+    if (placeDetail.getCategory() != null) {
+      place.setBusinessType(placeDetail.getCategory());
+    }
+    if (placeDetail.getDescription() != null) {
+      place.setDescription(placeDetail.getDescription());
+    }
+
+    // 위치 정보
+    if (placeDetail.getAddress() != null) {
+      place.setAddress(placeDetail.getAddress());
+    }
+    if (placeDetail.getRoadAddress() != null) {
+      place.setRoadAddress(placeDetail.getRoadAddress());
+    }
+    if (placeDetail.getSubwayInfo() != null) {
+      place.setSubwayInfo(placeDetail.getSubwayInfo());
+    }
+    if (placeDetail.getDirectionsText() != null) {
+      place.setDirectionsText(placeDetail.getDirectionsText());
+    }
+
+    // 평점/리뷰
+    if (placeDetail.getRating() != null) {
+      place.setRating(BigDecimal.valueOf(placeDetail.getRating()));
+    }
+    if (placeDetail.getVisitorReviewCount() != null) {
+      place.setVisitorReviewCount(placeDetail.getVisitorReviewCount());
+    }
+    if (placeDetail.getBlogReviewCount() != null) {
+      place.setBlogReviewCount(placeDetail.getBlogReviewCount());
+    }
+
+    // 영업 정보
+    if (placeDetail.getBusinessStatus() != null) {
+      place.setBusinessStatus(placeDetail.getBusinessStatus());
+    }
+    if (placeDetail.getBusinessHours() != null) {
+      place.setBusinessHours(placeDetail.getBusinessHours());
+    }
+    if (placeDetail.getOpenHoursDetail() != null) {
+      place.setOpenHoursDetail(placeDetail.getOpenHoursDetail());
+    }
+    if (placeDetail.getHolidayInfo() != null) {
+      place.setHolidayInfo(placeDetail.getHolidayInfo());
+    }
+
+    // 연락처/링크
+    if (placeDetail.getPhoneNumber() != null) {
+      place.setPhone(placeDetail.getPhoneNumber());
+    }
+    if (placeDetail.getHomepageUrl() != null) {
+      place.setHomepageUrl(placeDetail.getHomepageUrl());
+    }
+    if (placeDetail.getNaverMapUrl() != null) {
+      place.setNaverMapUrl(placeDetail.getNaverMapUrl());
+    }
+    if (placeDetail.getReservationAvailable() != null) {
+      place.setReservationAvailable(placeDetail.getReservationAvailable());
+    }
+
+    // 부가 정보
+    if (placeDetail.getAmenities() != null) {
+      place.setAmenities(placeDetail.getAmenities());
+    }
+    if (placeDetail.getTvAppearances() != null) {
+      place.setTvAppearances(placeDetail.getTvAppearances());
+    }
+    if (placeDetail.getMenuInfo() != null) {
+      place.setMenuInfo(placeDetail.getMenuInfo());
+    }
+    if (placeDetail.getImageUrl() != null) {
+      place.setImageUrl(placeDetail.getImageUrl());
+    }
+    if (placeDetail.getImageUrls() != null) {
+      place.setPhotoUrls(placeDetail.getImageUrls());
+    }
+  }
+
+  /**
+   * PlacePlatformReference 생성 (없으면)
+   */
+  private void createPlacePlatformReferenceIfNotExists(Place place, String naverPlaceId) {
+    if (naverPlaceId == null) {
+      return;
+    }
+
+    // 이미 존재하는지 확인
+    Optional<PlacePlatformReference> existing = placePlatformReferenceRepository
+        .findByPlaceAndPlacePlatform(place, PlacePlatform.NAVER);
+
+    if (existing.isEmpty()) {
+      PlacePlatformReference reference = PlacePlatformReference.builder()
+          .place(place)
+          .placePlatform(PlacePlatform.NAVER)
+          .placePlatformId(naverPlaceId)
           .build();
-
-      // 선택 필드 설정
-      if (placeInfo.getCategory() != null) {
-        newPlace.setTypes(Collections.singletonList(placeInfo.getCategory()));
-      }
-      if (placeInfo.getPhone() != null) {
-        newPlace.setPhone(placeInfo.getPhone());
-      }
-      if (placeInfo.getOpeningHours() != null) {
-        newPlace.setOpeningHours(placeInfo.getOpeningHours());
-      }
-      if (placeInfo.getDescription() != null) {
-        newPlace.setDescription(placeInfo.getDescription());
-      }
-
-      Place savedPlace = placeRepository.save(newPlace);
-      log.debug("Created new place: id={}, name={}, lat={}, lng={}",
-          savedPlace.getId(), savedPlace.getName(), latitude, longitude);
-      return savedPlace;
+      placePlatformReferenceRepository.save(reference);
+      log.debug("Created PlacePlatformReference: placeId={}, naverPlaceId={}", place.getId(), naverPlaceId);
     }
   }
 
   /**
-   * AI 응답 데이터로 기존 Place 업데이트
-   * <p>
-   * null이 아닌 필드만 업데이트하여 기존 데이터 보존
-   *
-   * @param place     업데이트할 Place
-   * @param placeInfo AI 응답 장소 정보
+   * ContentPlace 연결 생성 (순서 포함)
    */
-  private void updatePlaceFromAiData(Place place, AiCallbackRequest.PlaceInfo placeInfo) {
-    if (placeInfo.getAddress() != null) {
-      place.setAddress(placeInfo.getAddress());
-    }
-    if (placeInfo.getCountry() != null) {
-      place.setCountry(placeInfo.getCountry());
-    }
-    if (placeInfo.getCategory() != null) {
-      place.setTypes(Collections.singletonList(placeInfo.getCategory()));
-    }
-    if (placeInfo.getPhone() != null) {
-      place.setPhone(placeInfo.getPhone());
-    }
-    if (placeInfo.getOpeningHours() != null) {
-      place.setOpeningHours(placeInfo.getOpeningHours());
-    }
-    if (placeInfo.getDescription() != null) {
-      place.setDescription(placeInfo.getDescription());
-    }
-  }
-
-  /**
-   * ContentPlace 연결 생성 (중복 체크 포함)
-   * <p>
-   * Content와 Place 매핑. 이미 존재하면 스킵
-   *
-   * @param content 대상 Content
-   * @param place   대상 Place
-   */
-  private void createContentPlace(Content content, Place place) {
+  private void createContentPlace(Content content, Place place, int position) {
     // 중복 체크
     boolean exists = contentPlaceRepository.existsByContentAndPlace(content, place);
     if (exists) {
@@ -369,54 +492,22 @@ public class AiCallbackService {
       return;
     }
 
-    // ContentPlace 엔티티 생성
     ContentPlace contentPlace = ContentPlace.builder()
         .content(content)
         .place(place)
-        .position(0)  // AI 서버 응답에서는 순서 정보 없음
+        .position(position)
         .build();
 
-    // ContentPlace 저장
-    contentPlaceRepository.save(contentPlace);
-    log.debug("Created ContentPlace: contentId={}, placeId={}", content.getId(), place.getId());
-  }
-
-  /**
-   * ContentPlace 연결 생성 (순서 포함)
-   * <p>
-   * Content와 Place 매핑 및 순서 저장
-   *
-   * @param content  대상 Content
-   * @param place    대상 Place
-   * @param position 순서
-   */
-  private void createContentPlace(Content content, Place place, int position) {
-    // ContentPlace 엔티티 생성
-    ContentPlace contentPlace = ContentPlace.builder()
-        .content(content)
-        .place(place)
-        .position(position)  // Place 순서 정보
-        .build();
-
-    // ContentPlace 저장
     contentPlaceRepository.save(contentPlace);
     log.debug("Created ContentPlace: contentId={}, placeId={}, position={}", content.getId(), place.getId(), position);
   }
 
   /**
    * Content 분석 완료 알림 전송
-   * <p>
-   * 해당 Content를 요청한 모든 회원에게 FCM 알림 전송
-   * notified=false인 ContentMember만 대상으로 함
-   *
-   * @param content    완료된 Content
-   * @param request    AI Callback 요청
-   * @param placeCount 추출된 장소 개수
    */
-  private void sendContentCompleteNotification(Content content, AiCallbackRequest request, int placeCount) {
+  private void sendContentCompleteNotification(Content content, int placeCount) {
     log.info("Sending content complete notifications for contentId={}, placeCount={}", content.getId(), placeCount);
 
-    // 알림 미전송된 ContentMember 조회 (Member Fetch Join으로 N+1 방지)
     List<ContentMember> unnotifiedMembers = contentMemberRepository.findUnnotifiedMembersWithMember(content.getId());
 
     if (unnotifiedMembers.isEmpty()) {
@@ -458,16 +549,14 @@ public class AiCallbackService {
     List<ContentMember> succeededMembers = new ArrayList<>();
     for (ContentMember contentMember : unnotifiedMembers) {
       try {
-        // FCM 알림 전송
         fcmService.sendNotificationToMember(
             contentMember.getMember().getId(),
             notificationTitle,
             notificationBody,
             notificationData,
-            content.getThumbnailUrl()  // 썸네일 이미지 URL (null 가능)
+            content.getThumbnailUrl()
         );
 
-        // 알림 전송 완료 표시
         contentMember.setNotified(true);
         succeededMembers.add(contentMember);
         successCount++;
@@ -477,11 +566,9 @@ public class AiCallbackService {
       } catch (Exception e) {
         log.error("Failed to send notification to memberId={} for contentId={}: {}",
             contentMember.getMember().getId(), content.getId(), e.getMessage());
-        // 실패해도 계속 진행 (다른 회원들에게는 알림 전송)
       }
     }
 
-    // 알림 전송 완료된 ContentMember만 업데이트
     if (!succeededMembers.isEmpty()) {
       contentMemberRepository.saveAll(succeededMembers);
     }
@@ -492,27 +579,18 @@ public class AiCallbackService {
 
   /**
    * Content를 요청한 모든 회원에게 MemberPlace 생성
-   * - TEMPORARY 상태로 초기화
-   * - sourceContentId로 Content 추적
-   * - 중복 생성 방지 (이미 존재하면 스킵)
-   *
-   * @param content 원본 Content
-   * @param place   생성된 Place
    */
   private void createMemberPlaces(Content content, Place place) {
-    // 1. Content를 요청한 모든 회원 조회 (Member Fetch Join으로 N+1 방지)
     List<ContentMember> contentMembers = contentMemberRepository.findAllByContentWithMember(content);
 
     log.info("Creating MemberPlace for {} members (contentId={}, placeId={})",
         contentMembers.size(), content.getId(), place.getId());
 
-    // 2. 각 회원에 대해 MemberPlace 생성
     int createdCount = 0;
     int skippedCount = 0;
 
     for (ContentMember contentMember : contentMembers) {
       try {
-        // 3. 이미 존재하는지 확인 (중복 방지)
         Optional<MemberPlace> existing = memberPlaceRepository
             .findByMemberAndPlaceAndDeletedAtIsNull(contentMember.getMember(), place);
 
@@ -523,7 +601,6 @@ public class AiCallbackService {
           continue;
         }
 
-        // 4. MemberPlace 생성 및 저장
         MemberPlace memberPlace = MemberPlace.builder()
             .member(contentMember.getMember())
             .place(place)
@@ -540,7 +617,6 @@ public class AiCallbackService {
       } catch (Exception e) {
         log.error("Failed to create MemberPlace for memberId={}, placeId={}: {}",
             contentMember.getMember().getId(), place.getId(), e.getMessage());
-        // 실패해도 계속 진행 (다른 회원들의 MemberPlace는 생성)
       }
     }
 

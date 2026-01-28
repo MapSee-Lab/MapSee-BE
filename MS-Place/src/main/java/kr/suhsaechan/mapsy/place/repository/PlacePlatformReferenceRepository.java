@@ -32,4 +32,17 @@ public interface PlacePlatformReferenceRepository extends JpaRepository<PlacePla
    * @return PlacePlatformReference 리스트
    */
   List<PlacePlatformReference> findByPlace(Place place);
+
+  /**
+   * 플랫폼과 플랫폼 ID로 PlacePlatformReference 조회
+   * - AI 콜백에서 네이버 placeId로 중복 체크 시 사용
+   *
+   * @param placePlatform   플랫폼 (NAVER, GOOGLE, KAKAO)
+   * @param placePlatformId 플랫폼별 장소 ID
+   * @return Optional<PlacePlatformReference>
+   */
+  Optional<PlacePlatformReference> findByPlacePlatformAndPlacePlatformId(
+      PlacePlatform placePlatform,
+      String placePlatformId
+  );
 }

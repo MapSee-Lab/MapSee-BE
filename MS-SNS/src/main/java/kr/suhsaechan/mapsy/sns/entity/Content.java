@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -18,6 +19,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Builder
@@ -44,7 +47,7 @@ public class Content extends SoftDeletableBaseEntity {
   @Column(length = 255)
   private String platformUploader;
 
-  @Column(length = 1000)
+  @Column(length = 2000)
   private String caption;
 
   @Column(length = 500)
@@ -60,4 +63,29 @@ public class Content extends SoftDeletableBaseEntity {
   private String summary;
 
   private LocalDateTime lastCheckedAt;
+
+  // ========== 신규 필드 (AI 콜백 #16) ==========
+
+  @Column(length = 50)
+  private String contentType;
+
+  @Column
+  private Integer likesCount;
+
+  @Column
+  private Integer commentsCount;
+
+  @Column
+  private LocalDateTime postedAt;
+
+  @Column(columnDefinition = "varchar(100)[]")
+  @JdbcTypeCode(SqlTypes.ARRAY)
+  private List<String> hashtags;
+
+  @Column(columnDefinition = "text[]")
+  @JdbcTypeCode(SqlTypes.ARRAY)
+  private List<String> imageUrls;
+
+  @Column(length = 500)
+  private String authorProfileImageUrl;
 }
