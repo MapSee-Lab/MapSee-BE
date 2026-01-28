@@ -5,10 +5,12 @@ import kr.suhsaechan.mapsy.common.exception.constant.ErrorCode;
 import kr.suhsaechan.mapsy.member.entity.Member;
 import kr.suhsaechan.mapsy.member.repository.MemberRepository;
 import kr.suhsaechan.mapsy.place.constant.PlaceSavedStatus;
+import kr.suhsaechan.mapsy.place.dto.BookmarkDto;
 import kr.suhsaechan.mapsy.place.dto.GetSavedPlacesResponse;
 import kr.suhsaechan.mapsy.place.dto.GetTemporaryPlacesResponse;
 import kr.suhsaechan.mapsy.place.dto.PlaceDto;
 import kr.suhsaechan.mapsy.place.dto.SavePlaceResponse;
+import kr.suhsaechan.mapsy.place.dto.UpdateBookmarkRequest;
 import kr.suhsaechan.mapsy.place.entity.MemberPlace;
 import kr.suhsaechan.mapsy.place.entity.Place;
 import kr.suhsaechan.mapsy.place.repository.MemberPlaceRepository;
@@ -18,6 +20,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Transactional(readOnly = true)
 public class MemberPlaceService {
+
+  private static final int DEFAULT_TOP_PLACES_LIMIT = 10;
 
   private final MemberPlaceRepository memberPlaceRepository;
   private final PlaceRepository placeRepository;
@@ -199,6 +207,114 @@ public class MemberPlaceService {
   public void deleteTemporaryPlace(UUID memberId, UUID placeId) {
     Member member = getMemberById(memberId);
     deleteTemporaryPlace(member, placeId);
+  }
+
+  // ========== 북마크 관련 메서드 ==========
+
+  /**
+   * 북마크 목록 조회 (페이지네이션)
+   *
+   * @param memberId 회원 ID
+   * @param pageable 페이지 정보
+   * @return 북마크 Page
+   */
+  public Page<BookmarkDto> getBookmarks(UUID memberId, Pageable pageable) {
+    log.info("Getting bookmarks for member: {}, page: {}, size: {}",
+        memberId, pageable.getPageNumber(), pageable.getPageSize());
+
+    Page<MemberPlace> memberPlaces = memberPlaceRepository.findBookmarksByMemberIdAndSavedStatus(
+        memberId, PlaceSavedStatus.SAVED, pageable
+    );
+
+    log.info("Found {} bookmarks for member: {}", memberPlaces.getTotalElements(), memberId);
+
+    return memberPlaces.map(BookmarkDto::from);
+  }
+
+  /**
+   * 북마크 수정
+   * - 폴더, 메모, 별점, 방문 여부 수정 가능
+   * - null 값은 변경하지 않음
+   *
+   * @param memberId 회원 ID
+   * @param memberPlaceId MemberPlace ID
+   * @param request 수정 요청
+   * @return 수정된 북마크 정보
+   */
+  @Transactional
+  public BookmarkDto updateBookmark(UUID memberId, UUID memberPlaceId, UpdateBookmarkRequest request) {
+    log.info("Updating bookmark: memberId={}, memberPlaceId={}", memberId, memberPlaceId);
+
+    // 1. MemberPlace 조회 (회원 검증 포함)
+    MemberPlace memberPlace = memberPlaceRepository.findByIdAndMemberIdAndDeletedAtIsNull(
+        memberPlaceId, memberId
+    ).orElseThrow(() -> {
+      log.error("MemberPlace not found: memberPlaceId={}, memberId={}", memberPlaceId, memberId);
+      return new CustomException(ErrorCode.MEMBER_PLACE_NOT_FOUND);
+    });
+
+    // 2. SAVED 상태만 수정 가능
+    if (memberPlace.getSavedStatus() != PlaceSavedStatus.SAVED) {
+      log.error("Cannot update unsaved place: memberPlaceId={}, status={}",
+          memberPlaceId, memberPlace.getSavedStatus());
+      throw new CustomException(ErrorCode.CANNOT_UPDATE_UNSAVED_PLACE);
+    }
+
+    // 3. 필드별 수정 (null이 아닌 경우만)
+    if (request.getFolder() != null) {
+      memberPlace.updateFolder(request.getFolder());
+    }
+    if (request.getMemo() != null) {
+      memberPlace.updateMemo(request.getMemo());
+    }
+    if (request.getRating() != null) {
+      memberPlace.updateRating(request.getRating());
+    }
+    if (request.getVisited() != null) {
+      if (request.getVisited()) {
+        memberPlace.markAsVisited(request.getVisitedAt());
+      } else {
+        memberPlace.unmarkVisited();
+      }
+    }
+
+    MemberPlace savedMemberPlace = memberPlaceRepository.save(memberPlace);
+    log.info("Bookmark updated successfully: memberPlaceId={}", savedMemberPlace.getId());
+
+    return BookmarkDto.from(savedMemberPlace);
+  }
+
+  /**
+   * 내 TOP 저장 장소 조회
+   *
+   * @param memberId 회원 ID
+   * @param limit 조회 개수 (기본 10개)
+   * @return 장소 목록
+   */
+  public List<PlaceDto> getMyTopPlaces(UUID memberId, int limit) {
+    log.info("Getting top {} saved places for member: {}", limit, memberId);
+
+    Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "savedAt"));
+    List<MemberPlace> memberPlaces = memberPlaceRepository.findTopPlacesByMemberIdAndSavedStatus(
+        memberId, PlaceSavedStatus.SAVED, pageable
+    );
+
+    log.info("Found {} top places for member: {}", memberPlaces.size(), memberId);
+
+    return memberPlaces.stream()
+        .map(MemberPlace::getPlace)
+        .map(PlaceDto::from)
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * 내 TOP 저장 장소 조회 (기본 개수)
+   *
+   * @param memberId 회원 ID
+   * @return 장소 목록 (최대 10개)
+   */
+  public List<PlaceDto> getMyTopPlaces(UUID memberId) {
+    return getMyTopPlaces(memberId, DEFAULT_TOP_PLACES_LIMIT);
   }
 
   // ========== Private Helper Methods ==========
