@@ -53,14 +53,13 @@ public interface PlaceKeywordRepository extends JpaRepository<PlaceKeyword, Plac
 
   /**
    * 특정 키워드로 장소 검색 (Place 직접 조회)
-   * - N+1 문제 방지를 위한 fetch join
    *
    * @param keyword 키워드
    * @return List<Place>
    */
   @Query("""
-    SELECT pk.place FROM PlaceKeyword pk
-    JOIN FETCH pk.place p
+    SELECT p FROM PlaceKeyword pk
+    JOIN pk.place p
     WHERE pk.keyword = :keyword
     AND p.isDeleted = false
     ORDER BY p.createdAt DESC
@@ -74,8 +73,8 @@ public interface PlaceKeywordRepository extends JpaRepository<PlaceKeyword, Plac
    * @return List<Place>
    */
   @Query("""
-    SELECT DISTINCT pk.place FROM PlaceKeyword pk
-    JOIN FETCH pk.place p
+    SELECT DISTINCT p FROM PlaceKeyword pk
+    JOIN pk.place p
     WHERE pk.keyword IN :keywords
     AND p.isDeleted = false
     ORDER BY p.createdAt DESC
