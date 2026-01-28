@@ -114,6 +114,8 @@ public enum ErrorCode {
 
   CANNOT_DELETE_SAVED_PLACE(HttpStatus.BAD_REQUEST, "임시 저장된 장소만 삭제할 수 있습니다."),
 
+  CANNOT_UPDATE_UNSAVED_PLACE(HttpStatus.BAD_REQUEST, "저장된 장소만 수정할 수 있습니다."),
+
   INVALID_RATING(HttpStatus.BAD_REQUEST, "별점은 1-5 사이의 값이어야 합니다.");
 
   private final HttpStatus status;

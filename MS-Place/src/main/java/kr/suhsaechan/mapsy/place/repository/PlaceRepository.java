@@ -1,6 +1,9 @@
 package kr.suhsaechan.mapsy.place.repository;
 
+import kr.suhsaechan.mapsy.place.constant.PlaceSavedStatus;
 import kr.suhsaechan.mapsy.place.entity.Place;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -45,5 +48,34 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
   Optional<Place> findByNormalizedNameAndAddress(
           @Param("name") String name,
           @Param("address") String address
+  );
+
+  /**
+   * 최신 장소 피드 조회
+   * - 생성일 기준 내림차순 정렬
+   *
+   * @param pageable 페이지 정보
+   * @return Page<Place>
+   */
+  Page<Place> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+  /**
+   * 인기 장소 피드 조회
+   * - MemberPlace에 저장된 횟수 기준 내림차순 정렬
+   *
+   * @param savedStatus 저장 상태 (SAVED 등)
+   * @param pageable 페이지 정보
+   * @return Page<Place>
+   */
+  @Query(value = "SELECT p FROM Place p " +
+      "LEFT JOIN MemberPlace mp ON mp.place = p " +
+      "AND mp.savedStatus = :savedStatus " +
+      "AND mp.deletedAt IS NULL " +
+      "GROUP BY p " +
+      "ORDER BY COUNT(mp) DESC, p.createdAt DESC",
+      countQuery = "SELECT COUNT(DISTINCT p) FROM Place p")
+  Page<Place> findPopularPlaces(
+      @Param("savedStatus") PlaceSavedStatus savedStatus,
+      Pageable pageable
   );
 }
