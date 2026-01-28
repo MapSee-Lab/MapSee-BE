@@ -17,9 +17,9 @@ RUN apk add --no-cache tzdata && \
 # JAR 파일 복사 (MS-Web 모듈)
 COPY MS-Web/build/libs/app.jar app.jar
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+# Health check (12시간마다 실행)
+HEALTHCHECK --interval=43200s --timeout=10s --start-period=60s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/docs/swagger || exit 1
 
 EXPOSE 8080
 

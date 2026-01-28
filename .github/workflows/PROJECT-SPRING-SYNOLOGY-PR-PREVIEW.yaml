@@ -107,7 +107,7 @@ env:
   #   HEALTH_CHECK_PATH: '/actuator/health'
   #   HEALTH_CHECK_LOG_PATTERN: 'Started .* in [0-9.]+ seconds'
   #   API_DOCS_PATH: '/swagger-ui.html' 또는 '/swagger-ui/index.html'
-  HEALTH_CHECK_PATH: '/actuator/health'
+  HEALTH_CHECK_PATH: '/docs/swagger'
   HEALTH_CHECK_LOG_PATTERN: 'Started .* in [0-9.]+ seconds'
   API_DOCS_PATH: '/docs/swagger'
 
