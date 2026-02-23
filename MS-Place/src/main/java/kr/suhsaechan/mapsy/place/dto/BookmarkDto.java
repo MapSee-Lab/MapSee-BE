@@ -22,9 +22,6 @@ public class BookmarkDto {
   @Schema(description = "장소 정보")
   private PlaceDto place;
 
-  @Schema(description = "폴더명", example = "가고 싶은 곳")
-  private String folder;
-
   @Schema(description = "메모", example = "친구랑 같이 가기")
   private String memo;
 
@@ -48,7 +45,6 @@ public class BookmarkDto {
     return BookmarkDto.builder()
         .memberPlaceId(memberPlace.getId())
         .place(PlaceDto.from(memberPlace.getPlace()))
-        .folder(memberPlace.getFolder())
         .memo(memberPlace.getMemo())
         .rating(memberPlace.getRating())
         .visited(memberPlace.getVisited())

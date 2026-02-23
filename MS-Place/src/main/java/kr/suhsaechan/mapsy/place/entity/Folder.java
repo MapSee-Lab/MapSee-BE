@@ -19,12 +19,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Builder
 @Getter
-@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Folder extends SoftDeletableBaseEntity {
@@ -55,6 +53,14 @@ public class Folder extends SoftDeletableBaseEntity {
   @Column(nullable = false)
   @Builder.Default
   private Boolean isDefault = false;
+
+  public void updateName(String name) {
+    this.name = name;
+  }
+
+  public void updateVisibility(FolderVisibility visibility) {
+    this.visibility = visibility;
+  }
 
   @PrePersist
   protected void onCreate() {

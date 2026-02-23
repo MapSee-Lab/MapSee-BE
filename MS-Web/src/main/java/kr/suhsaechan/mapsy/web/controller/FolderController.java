@@ -96,7 +96,7 @@ public class FolderController implements FolderControllerDocs {
   public ResponseEntity<AddFolderPlaceResponse> addPlaceToFolder(
       @AuthenticationPrincipal CustomUserDetails userDetails,
       @PathVariable UUID folderId,
-      @RequestBody AddFolderPlaceRequest request
+      @Valid @RequestBody AddFolderPlaceRequest request
   ) {
     log.info("Add place to folder request from member: {}, folderId: {}, placeId: {}",
         userDetails.getMemberId(), folderId, request.getPlaceId());
