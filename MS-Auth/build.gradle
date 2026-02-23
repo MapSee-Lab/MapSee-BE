@@ -16,4 +16,5 @@ jar {
 dependencies {
     api project(':MS-Common')
     api project(':MS-Member')
+    api project(':MS-Place')
 }
