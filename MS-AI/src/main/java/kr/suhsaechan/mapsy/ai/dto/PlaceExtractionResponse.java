@@ -1,5 +1,6 @@
 package kr.suhsaechan.mapsy.ai.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,12 +11,13 @@ import java.util.UUID;
 
 /**
  * AI 서버로부터 장소 추출 요청 응답 (200 OK)
- * AI 서버 실제 응답 형식: {"received": true, "contentId": "..."}
+ * AI 서버 실제 응답 형식: {"received": true, "message": "Processing started"}
  */
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PlaceExtractionResponse {
   @Schema(description = "Content UUID")
   private UUID contentId;
@@ -25,4 +27,7 @@ public class PlaceExtractionResponse {
 
   @Schema(description = "처리 상태 (deprecated, received 필드 사용 권장)", example = "ACCEPTED")
   private String status;
+
+  @Schema(description = "AI 서버 응답 메시지", example = "Processing started")
+  private String message;
 }

@@ -80,8 +80,8 @@ public class AiServerService {
 
         PlaceExtractionResponse response = objectMapper.readValue(responseBody, PlaceExtractionResponse.class);
 
-        log.info("AI server accepted the request: contentId={}, received={}, status={}",
-            contentId, response.getReceived(), response.getStatus());
+        log.info("AI server accepted the request: contentId={}, received={}, status={}, message={}",
+            contentId, response.getReceived(), response.getStatus(), response.getMessage());
 
         return response;
       }
