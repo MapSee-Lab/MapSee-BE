@@ -1,11 +1,27 @@
 {
   "metadata": {
-    "lastUpdated": "2026-02-10T13:45:09Z",
-    "currentVersion": "0.1.25",
+    "lastUpdated": "2026-02-23T09:25:06Z",
+    "currentVersion": "0.1.30",
     "projectType": "spring",
-    "totalReleases": 7
+    "totalReleases": 8
   },
   "releases": [
+    {
+      "version": "0.1.30",
+      "project_type": "spring",
+      "date": "2026-02-23",
+      "pr_number": 35,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **Chores**\n  * 배포 버전을 v0.1.29에서 v0.1.30으로 업데이트했습니다.",
+      "parsed_changes": {
+        "chores": {
+          "title": "Chores",
+          "items": [
+            "배포 버전을 v0.1.29에서 v0.1.30으로 업데이트했습니다."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.1.25",
       "project_type": "spring",
