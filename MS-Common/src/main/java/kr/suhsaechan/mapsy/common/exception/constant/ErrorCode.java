@@ -115,8 +115,19 @@ public enum ErrorCode {
   CANNOT_DELETE_SAVED_PLACE(HttpStatus.BAD_REQUEST, "임시 저장된 장소만 삭제할 수 있습니다."),
 
   CANNOT_UPDATE_UNSAVED_PLACE(HttpStatus.BAD_REQUEST, "저장된 장소만 수정할 수 있습니다."),
+  
+  INVALID_RATING(HttpStatus.BAD_REQUEST, "별점은 1-5 사이의 값이어야 합니다."),
 
-  INVALID_RATING(HttpStatus.BAD_REQUEST, "별점은 1-5 사이의 값이어야 합니다.");
+  // Folder
+  FOLDER_NOT_FOUND(HttpStatus.NOT_FOUND, "폴더를 찾을 수 없습니다."),
+
+  FOLDER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 폴더에 대한 접근 권한이 없습니다."),
+
+  CANNOT_DELETE_DEFAULT_FOLDER(HttpStatus.BAD_REQUEST, "기본 폴더는 삭제할 수 없습니다."),
+
+  FOLDER_PLACE_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "이미 해당 폴더에 추가된 장소입니다."),
+
+  FOLDER_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "폴더에서 해당 장소를 찾을 수 없습니다.");
 
   private final HttpStatus status;
   private final String message;

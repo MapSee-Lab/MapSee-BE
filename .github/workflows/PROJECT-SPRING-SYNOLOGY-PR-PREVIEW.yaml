@@ -27,10 +27,11 @@
 #   - SERVER_USER: SSH 사용자명
 #   - SERVER_PASSWORD: SSH 비밀번호
 #
+#   [필수] 프로젝트별 추가:
+#   - FIREBASE_KEY_JSON: Firebase Admin SDK 키 (mapsy-fcm.json 전체 내용)
+#
 #   [선택] 프로젝트별 추가 (필요 없으면 해당 step 삭제):
 #   - VERTEX_SA_KEY: Vertex AI 서비스 계정 키
-#   - FIREBASE_KEY_JSON: Firebase Admin SDK 키
-#   - FIREBASE_MESSAGING_SW_JS: Firebase Messaging Service Worker
 #   - 기타 프로젝트별 Secret...
 #
 # 📋 사전 요구사항:
@@ -292,18 +293,12 @@ jobs:
           ${{ secrets.APPLICATION_PROD_YML }}
           EOF
 
-      # [선택] 아래는 예시입니다. 필요 없으면 삭제하세요.
-      # - name: "[선택] Vertex AI Service Account Key 생성"
-      #   env:
-      #     VERTEX_SA_KEY: ${{ secrets.VERTEX_SA_KEY }}
-      #   run: |
-      #     echo "$VERTEX_SA_KEY" | sed 's/\\n/\n/g' > ./Suh-Web/src/main/resources/vertex-ai-key.json
-
-      # - name: "[선택] Firebase Admin SDK 생성"
-      #   env:
-      #     FIREBASE_KEY_JSON: ${{ secrets.FIREBASE_KEY_JSON }}
-      #   run: |
-      #     echo "$FIREBASE_KEY_JSON" | sed 's/\\n/\n/g' > ./Suh-Web/src/main/resources/firebase-admin-sdk.json
+      # [필수] Firebase Service Account JSON 파일
+      - name: "[필수] mapsy-fcm.json 생성 (Firebase)"
+        run: |
+          cat << 'EOF' > ./MS-Web/src/main/resources/mapsy-fcm.json
+          ${{ secrets.FIREBASE_KEY_JSON }}
+          EOF
 
       # =================================================================
       # ⚠️ [영역 2 끝] 프로젝트별 Secret 파일 생성 끝
@@ -936,6 +931,15 @@ jobs:
           cat << 'EOF' > ${{ env.APPLICATION_YML_PATH }}
           ${{ secrets.APPLICATION_PROD_YML }}
           EOF
+
+      # [필수] Firebase Service Account JSON 파일
+      - name: "[필수] mapsy-fcm.json 생성 (Firebase)"
+        if: steps.check_branch.outputs.exists == 'true'
+        run: |
+          cat << 'EOF' > ./MS-Web/src/main/resources/mapsy-fcm.json
+          ${{ secrets.FIREBASE_KEY_JSON }}
+          EOF
+
       # =================================================================
       # ⚠️ [영역 2 끝] 프로젝트별 Secret 파일 생성 끝
       # =================================================================

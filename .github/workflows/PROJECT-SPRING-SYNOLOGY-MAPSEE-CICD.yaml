@@ -156,6 +156,17 @@ jobs:
 
           echo "✅ application-prod.yml 파일 생성 완료 (${{ env.APPLICATION_YML_DIR }})"
 
+      # 4-1. Firebase Service Account JSON 파일 생성
+      # GitHub Secrets에서 FIREBASE_KEY_JSON 값을 읽어와서
+      # 리소스 디렉토리에 mapsy-fcm.json 파일로 생성
+      - name: mapsy-fcm.json 생성 (Firebase)
+        run: |
+          cat << 'EOF' > ./${{ env.APPLICATION_YML_DIR }}/mapsy-fcm.json
+          ${{ secrets.FIREBASE_KEY_JSON }}
+          EOF
+
+          echo "✅ mapsy-fcm.json 파일 생성 완료 (${{ env.APPLICATION_YML_DIR }})"
+
       # 5. Gradle 빌드 실행
       # 테스트는 제외하고 운영 프로파일로 빌드
       - name: Build with Gradle

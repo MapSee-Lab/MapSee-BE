@@ -76,16 +76,6 @@ public class MemberPlace extends SoftDeletableBaseEntity {
   private LocalDateTime savedAt;
 
   /**
-   * 북마크 폴더명
-   * - 사용자가 장소를 분류하기 위한 폴더
-   * - 예: "가고 싶은 곳", "가본 곳", "즐겨찾기", "맛집" 등
-   * - 기본값: "default"
-   */
-  @Column(length = 50)
-  @Builder.Default
-  private String folder = "default";
-
-  /**
    * 사용자 메모
    * - 장소에 대한 개인적인 메모 (최대 1000자)
    */
@@ -132,15 +122,6 @@ public class MemberPlace extends SoftDeletableBaseEntity {
 
     this.savedStatus = PlaceSavedStatus.SAVED;
     this.savedAt = LocalDateTime.now();
-  }
-
-  /**
-   * 폴더 변경
-   *
-   * @param newFolder 새 폴더명
-   */
-  public void updateFolder(String newFolder) {
-    this.folder = newFolder;
   }
 
   /**
