@@ -45,11 +45,12 @@ public class FolderService {
   public GetFoldersResponse getFolders(Member member) {
     log.info("Getting folders for member: {}", member.getId());
 
-    List<Folder> folders = folderRepository.findByOwnerAndDeletedAtIsNullOrderByCreatedAtAsc(member);
+    List<Object[]> results = folderRepository.findByOwnerWithPlaceCount(member);
 
-    List<FolderDto> folderDtos = folders.stream()
-        .map(folder -> {
-          int placeCount = folderPlaceRepository.countByFolderAndDeletedAtIsNull(folder);
+    List<FolderDto> folderDtos = results.stream()
+        .map(row -> {
+          Folder folder = (Folder) row[0];
+          int placeCount = ((Long) row[1]).intValue();
           return FolderDto.from(folder, placeCount);
         })
         .collect(Collectors.toList());
