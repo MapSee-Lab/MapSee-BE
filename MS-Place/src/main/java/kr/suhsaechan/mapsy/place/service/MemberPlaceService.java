@@ -266,9 +266,6 @@ public class MemberPlaceService {
     }
 
     // 3. 필드별 수정 (null이 아닌 경우만)
-    if (request.getFolder() != null) {
-      memberPlace.updateFolder(request.getFolder());
-    }
     if (request.getMemo() != null) {
       memberPlace.updateMemo(request.getMemo());
     }

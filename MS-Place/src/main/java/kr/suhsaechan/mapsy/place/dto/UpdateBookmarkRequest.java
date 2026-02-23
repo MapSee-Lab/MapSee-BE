@@ -14,9 +14,6 @@ import lombok.NoArgsConstructor;
 @Schema(description = "북마크 수정 요청")
 public class UpdateBookmarkRequest {
 
-  @Schema(description = "폴더명 (null이면 변경하지 않음)", example = "가고 싶은 곳")
-  private String folder;
-
   @Schema(description = "메모 (null이면 변경하지 않음)", example = "친구랑 같이 가기")
   private String memo;
 
