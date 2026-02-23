@@ -1,6 +1,7 @@
 package kr.suhsaechan.mapsy.web.controller;
 
 import kr.suhsaechan.mapsy.auth.dto.CustomUserDetails;
+import kr.suhsaechan.mapsy.common.constant.Author;
 import kr.suhsaechan.mapsy.place.dto.AddFolderPlaceRequest;
 import kr.suhsaechan.mapsy.place.dto.AddFolderPlaceResponse;
 import kr.suhsaechan.mapsy.place.dto.CreateFolderRequest;
@@ -11,10 +12,12 @@ import kr.suhsaechan.mapsy.place.dto.UpdateFolderRequest;
 import kr.suhsaechan.mapsy.place.dto.UpdateFolderResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import java.util.UUID;
+import kr.suhsaechan.suhapilog.annotation.ApiLog;
 import org.springframework.http.ResponseEntity;
 
 public interface FolderControllerDocs {
 
+  @ApiLog(date = "2026.02.23", author = Author.SUHSAECHAN, issueNumber = 26, description = "폴더 목록 조회 API 구현")
   @Operation(summary = "내 폴더 목록 조회", description = """
               ## 인증(JWT): **필요**
 
@@ -42,6 +45,7 @@ public interface FolderControllerDocs {
       CustomUserDetails userDetails
   );
 
+  @ApiLog(date = "2026.02.23", author = Author.SUHSAECHAN, issueNumber = 26, description = "폴더 생성 API 구현")
   @Operation(summary = "폴더 생성", description = """
               ## 인증(JWT): **필요**
 
@@ -67,6 +71,7 @@ public interface FolderControllerDocs {
       CreateFolderRequest request
   );
 
+  @ApiLog(date = "2026.02.23", author = Author.SUHSAECHAN, issueNumber = 26, description = "폴더 수정 API 구현")
   @Operation(summary = "폴더 수정", description = """
               ## 인증(JWT): **필요**
 
@@ -95,6 +100,7 @@ public interface FolderControllerDocs {
       UpdateFolderRequest request
   );
 
+  @ApiLog(date = "2026.02.23", author = Author.SUHSAECHAN, issueNumber = 26, description = "폴더 삭제 API 구현")
   @Operation(summary = "폴더 삭제", description = """
               ## 인증(JWT): **필요**
 
@@ -119,6 +125,7 @@ public interface FolderControllerDocs {
       UUID folderId
   );
 
+  @ApiLog(date = "2026.02.23", author = Author.SUHSAECHAN, issueNumber = 26, description = "폴더 내 장소 목록 조회 API 구현")
   @Operation(summary = "폴더 내 장소 목록 조회", description = """
               ## 인증(JWT): **필요**
 
@@ -150,6 +157,7 @@ public interface FolderControllerDocs {
       UUID folderId
   );
 
+  @ApiLog(date = "2026.02.23", author = Author.SUHSAECHAN, issueNumber = 26, description = "폴더에 장소 추가 API 구현")
   @Operation(summary = "폴더에 장소 추가", description = """
               ## 인증(JWT): **필요**
 
@@ -181,6 +189,7 @@ public interface FolderControllerDocs {
       AddFolderPlaceRequest request
   );
 
+  @ApiLog(date = "2026.02.23", author = Author.SUHSAECHAN, issueNumber = 26, description = "폴더에서 장소 제거 API 구현")
   @Operation(summary = "폴더에서 장소 제거", description = """
               ## 인증(JWT): **필요**
 

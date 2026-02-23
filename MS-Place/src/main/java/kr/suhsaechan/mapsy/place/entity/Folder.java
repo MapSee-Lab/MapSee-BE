@@ -64,6 +64,9 @@ public class Folder extends SoftDeletableBaseEntity {
       if (visibility == null) {
           visibility = FolderVisibility.PRIVATE;
       }
+      if (isDefault == null) {
+          isDefault = false;
+      }
   }
 
 }

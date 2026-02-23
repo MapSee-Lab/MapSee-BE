@@ -10,6 +10,7 @@ import kr.suhsaechan.mapsy.place.dto.GetFoldersResponse;
 import kr.suhsaechan.mapsy.place.dto.UpdateFolderRequest;
 import kr.suhsaechan.mapsy.place.dto.UpdateFolderResponse;
 import kr.suhsaechan.mapsy.place.service.FolderService;
+import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,12 +24,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
 @Slf4j
 @RequestMapping("/api/folders")
+@Tag(name = "폴더 관리 API", description = "폴더 CRUD 및 폴더-장소 관리 관련 API 제공")
 public class FolderController implements FolderControllerDocs {
 
   private final FolderService folderService;
@@ -47,7 +50,7 @@ public class FolderController implements FolderControllerDocs {
   @Override
   public ResponseEntity<CreateFolderResponse> createFolder(
       @AuthenticationPrincipal CustomUserDetails userDetails,
-      @RequestBody CreateFolderRequest request
+      @Valid @RequestBody CreateFolderRequest request
   ) {
     log.info("Create folder request from member: {}", userDetails.getMemberId());
     CreateFolderResponse response = folderService.createFolder(userDetails.getMemberId(), request);
@@ -59,7 +62,7 @@ public class FolderController implements FolderControllerDocs {
   public ResponseEntity<UpdateFolderResponse> updateFolder(
       @AuthenticationPrincipal CustomUserDetails userDetails,
       @PathVariable UUID folderId,
-      @RequestBody UpdateFolderRequest request
+      @Valid @RequestBody UpdateFolderRequest request
   ) {
     log.info("Update folder request from member: {}, folderId: {}", userDetails.getMemberId(), folderId);
     UpdateFolderResponse response = folderService.updateFolder(userDetails.getMemberId(), folderId, request);
