@@ -7,6 +7,8 @@ import kr.suhsaechan.mapsy.place.entity.Place;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -69,5 +71,40 @@ public interface MemberPlaceRepository extends JpaRepository<MemberPlace, UUID> 
   List<MemberPlace> findByMemberAndSavedStatusWithPlace(
       @Param("member") Member member,
       @Param("savedStatus") PlaceSavedStatus savedStatus
+  );
+
+  @Query(value = "SELECT mp FROM MemberPlace mp " +
+      "JOIN FETCH mp.place " +
+      "WHERE mp.member.id = :memberId " +
+      "AND mp.savedStatus = :savedStatus " +
+      "AND mp.deletedAt IS NULL",
+      countQuery = "SELECT COUNT(mp) FROM MemberPlace mp " +
+          "WHERE mp.member.id = :memberId " +
+          "AND mp.savedStatus = :savedStatus " +
+          "AND mp.deletedAt IS NULL")
+  Page<MemberPlace> findBookmarksByMemberIdAndSavedStatus(
+      @Param("memberId") UUID memberId,
+      @Param("savedStatus") PlaceSavedStatus savedStatus,
+      Pageable pageable
+  );
+
+  @Query("SELECT mp FROM MemberPlace mp " +
+      "WHERE mp.id = :id " +
+      "AND mp.member.id = :memberId " +
+      "AND mp.deletedAt IS NULL")
+  Optional<MemberPlace> findByIdAndMemberIdAndDeletedAtIsNull(
+      @Param("id") UUID id,
+      @Param("memberId") UUID memberId
+  );
+
+  @Query("SELECT mp FROM MemberPlace mp " +
+      "JOIN FETCH mp.place " +
+      "WHERE mp.member.id = :memberId " +
+      "AND mp.savedStatus = :savedStatus " +
+      "AND mp.deletedAt IS NULL")
+  List<MemberPlace> findTopPlacesByMemberIdAndSavedStatus(
+      @Param("memberId") UUID memberId,
+      @Param("savedStatus") PlaceSavedStatus savedStatus,
+      Pageable pageable
   );
 }
