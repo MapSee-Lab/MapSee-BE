@@ -23,6 +23,8 @@ public interface FolderPlaceRepository extends JpaRepository<FolderPlace, UUID> 
 
   Optional<FolderPlace> findByFolderAndPlaceAndDeletedAtIsNull(Folder folder, Place place);
 
+  Optional<FolderPlace> findByFolderAndPlace(Folder folder, Place place);
+
   boolean existsByFolderAndPlaceAndDeletedAtIsNull(Folder folder, Place place);
 
   List<FolderPlace> findByFolderAndDeletedAtIsNull(Folder folder);

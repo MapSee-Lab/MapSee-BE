@@ -22,6 +22,7 @@ import kr.suhsaechan.mapsy.place.repository.FolderPlaceRepository;
 import kr.suhsaechan.mapsy.place.repository.FolderRepository;
 import kr.suhsaechan.mapsy.place.repository.PlaceRepository;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -84,10 +85,10 @@ public class FolderService {
     Folder folder = getFolderWithOwnerValidation(folderId, member);
 
     if (request.getName() != null) {
-      folder.setName(request.getName());
+      folder.updateName(request.getName());
     }
     if (request.getVisibility() != null) {
-      folder.setVisibility(request.getVisibility());
+      folder.updateVisibility(request.getVisibility());
     }
 
     Folder savedFolder = folderRepository.save(folder);
@@ -151,9 +152,20 @@ public class FolderService {
     Place place = placeRepository.findById(request.getPlaceId())
         .orElseThrow(() -> new CustomException(ErrorCode.PLACE_NOT_FOUND));
 
-    // 중복 체크
-    if (folderPlaceRepository.existsByFolderAndPlaceAndDeletedAtIsNull(folder, place)) {
-      throw new CustomException(ErrorCode.FOLDER_PLACE_ALREADY_EXISTS);
+    // 기존 레코드 조회 (Soft Delete 포함)
+    Optional<FolderPlace> existingFolderPlace = folderPlaceRepository.findByFolderAndPlace(folder, place);
+
+    if (existingFolderPlace.isPresent()) {
+      FolderPlace fp = existingFolderPlace.get();
+      if (fp.isActive()) {
+        // 이미 활성 상태면 중복 에러
+        throw new CustomException(ErrorCode.FOLDER_PLACE_ALREADY_EXISTS);
+      }
+      // Soft Delete된 레코드 복원
+      fp.restore();
+      FolderPlace restoredFolderPlace = folderPlaceRepository.save(fp);
+      log.info("Place restored to folder: folderPlaceId={}", restoredFolderPlace.getId());
+      return AddFolderPlaceResponse.from(restoredFolderPlace);
     }
 
     int maxPosition = folderPlaceRepository.findMaxPositionByFolder(folder);
@@ -211,9 +223,19 @@ public class FolderService {
     Folder defaultFolder = folderRepository.findByOwnerAndIsDefaultTrueAndDeletedAtIsNull(member)
         .orElseGet(() -> createDefaultFolder(member));
 
-    // 이미 기본 폴더에 있으면 스킵
-    if (folderPlaceRepository.existsByFolderAndPlaceAndDeletedAtIsNull(defaultFolder, place)) {
-      log.debug("Place already in default folder: placeId={}", place.getId());
+    // 기존 레코드 조회 (Soft Delete 포함)
+    Optional<FolderPlace> existingFolderPlace = folderPlaceRepository.findByFolderAndPlace(defaultFolder, place);
+
+    if (existingFolderPlace.isPresent()) {
+      FolderPlace fp = existingFolderPlace.get();
+      if (fp.isActive()) {
+        log.debug("Place already in default folder: placeId={}", place.getId());
+        return;
+      }
+      // Soft Delete된 레코드 복원
+      fp.restore();
+      folderPlaceRepository.save(fp);
+      log.info("Place restored to default folder: placeId={}", place.getId());
       return;
     }
 
