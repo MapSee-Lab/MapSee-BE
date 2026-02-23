@@ -1,11 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-02-23T09:25:06Z",
-    "currentVersion": "0.1.30",
+    "lastUpdated": "2026-02-23T09:41:22Z",
+    "currentVersion": "0.1.31",
     "projectType": "spring",
-    "totalReleases": 8
+    "totalReleases": 9
   },
   "releases": [
+    {
+      "version": "0.1.31",
+      "project_type": "spring",
+      "date": "2026-02-23",
+      "pr_number": 37,
+      "raw_summary": "## Summary by CodeRabbit\n\n## 릴리스 노트\n\n* **개선 사항**\n  * AI 서버 응답에서 메시지 필드를 포함하도록 확장했습니다.\n  * 알 수 없는 JSON 속성을 무시하는 기능을 추가했습니다.\n  * 응답 로깅에 메시지 정보를 포함하도록 개선했습니다.\n\n* **Chores**\n  * 버전을 0.1.31로 업데이트했습니다.",
+      "parsed_changes": {
+        "개선_사항": {
+          "title": "개선 사항",
+          "items": [
+            "AI 서버 응답에서 메시지 필드를 포함하도록 확장했습니다.",
+            "알 수 없는 JSON 속성을 무시하는 기능을 추가했습니다.",
+            "응답 로깅에 메시지 정보를 포함하도록 개선했습니다."
+          ]
+        },
+        "chores": {
+          "title": "Chores",
+          "items": [
+            "버전을 0.1.31로 업데이트했습니다."
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "0.1.30",
       "project_type": "spring",
