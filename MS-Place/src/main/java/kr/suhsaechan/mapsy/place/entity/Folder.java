@@ -52,6 +52,10 @@ public class Folder extends SoftDeletableBaseEntity {
   @Column(length = 500)
   private String thumbnailUrl;
 
+  @Column(nullable = false)
+  @Builder.Default
+  private Boolean isDefault = false;
+
   @PrePersist
   protected void onCreate() {
       if (name == null) {
