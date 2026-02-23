@@ -112,8 +112,8 @@ env:
   # 📦 볼륨 마운트 설정
   # true: 볼륨 마운트 활성화 (디렉토리 없으면 자동 생성)
   # false: 볼륨 마운트 비활성화 (기본값)
-  ENABLE_VOLUME_MOUNT: "false"
-  VOLUME_HOST_PATH: "/volume1/projects/mapsy"  # 호스트 경로
+  ENABLE_VOLUME_MOUNT: "true"
+  VOLUME_HOST_PATH: "/volume1/projects/mapsy/backend"  # 호스트 경로
   VOLUME_CONTAINER_PATH: "/mnt"  # 컨테이너 내부 경로
 
 jobs:
@@ -296,12 +296,11 @@ jobs:
             # 볼륨 마운트 옵션 설정
             VOLUME_MOUNT_OPTION=""
             if [ "${{ env.ENABLE_VOLUME_MOUNT }}" == "true" ]; then
-              # 디렉토리가 없으면 생성
-              if [ ! -d "${{ env.VOLUME_HOST_PATH }}/${PROJECT_NAME}" ]; then
-                echo "📁 볼륨 마운트 디렉토리 생성: ${{ env.VOLUME_HOST_PATH }}/${PROJECT_NAME}"
-                echo $PW | sudo -S mkdir -p "${{ env.VOLUME_HOST_PATH }}/${PROJECT_NAME}"
+              if [ ! -d "${{ env.VOLUME_HOST_PATH }}" ]; then
+                echo "📁 볼륨 마운트 디렉토리 생성: ${{ env.VOLUME_HOST_PATH }}"
+                echo $PW | sudo -S mkdir -p "${{ env.VOLUME_HOST_PATH }}"
               fi
-              VOLUME_MOUNT_OPTION="-v ${{ env.VOLUME_HOST_PATH }}/${PROJECT_NAME}:${{ env.VOLUME_CONTAINER_PATH }}/${PROJECT_NAME}"
+              VOLUME_MOUNT_OPTION="-v ${{ env.VOLUME_HOST_PATH }}:${{ env.VOLUME_CONTAINER_PATH }}"
               echo "📦 볼륨 마운트 활성화: $VOLUME_MOUNT_OPTION"
             else
               echo "ℹ️ 볼륨 마운트 비활성화됨"

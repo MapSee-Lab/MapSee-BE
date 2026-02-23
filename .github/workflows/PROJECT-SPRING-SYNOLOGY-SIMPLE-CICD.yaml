@@ -75,9 +75,9 @@ name: PROJECT-SPRING-SYNOLOGY-CICD
 # deploy와 test 브랜치에 push할 때 자동으로 CI/CD가 실행됩니다.
 # main 브랜치는 workflow_dispatch로 수동 실행만 가능합니다.
 on:
+  # deploy 브랜치는 PROJECT-SPRING-SYNOLOGY-MAPSEE-CICD.yaml에서 처리
   push:
     branches:
-      - deploy  # 배포 환경 (8080 포트)
       - test    # 테스트 환경 (8081 포트)
   workflow_dispatch:  # 수동 실행 허용
 
