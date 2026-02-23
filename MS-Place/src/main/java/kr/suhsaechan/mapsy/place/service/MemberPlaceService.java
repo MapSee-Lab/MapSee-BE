@@ -30,6 +30,7 @@ public class MemberPlaceService {
   private final MemberPlaceRepository memberPlaceRepository;
   private final PlaceRepository placeRepository;
   private final MemberRepository memberRepository;
+  private final FolderService folderService;
 
   /**
    * 회원의 임시 저장 장소 목록 조회
@@ -112,6 +113,10 @@ public class MemberPlaceService {
 
     // 3. 상태 변경 (TEMPORARY → SAVED)
     memberPlace.markAsSaved();
+
+    // 4. 기본 폴더에 자동 배치
+    folderService.addPlaceToDefaultFolder(member, place);
+
     MemberPlace savedMemberPlace = memberPlaceRepository.save(memberPlace);
 
     log.info("Place saved successfully: memberPlaceId={}", savedMemberPlace.getId());

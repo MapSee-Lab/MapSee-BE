@@ -20,6 +20,7 @@ import kr.suhsaechan.mapsy.member.repository.FcmTokenRepository;
 import kr.suhsaechan.mapsy.member.repository.MemberRepository;
 import kr.suhsaechan.mapsy.member.service.MemberService;
 import kr.suhsaechan.mapsy.member.service.NicknameService;
+import kr.suhsaechan.mapsy.place.service.FolderService;
 import io.jsonwebtoken.ExpiredJwtException;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -46,6 +47,7 @@ public class AuthService {
   private final FcmTokenRepository fcmTokenRepository;
   private final FirebaseTokenService firebaseTokenService;
   private final NicknameService nicknameService;
+  private final FolderService folderService;
 
   /**
    * Firebase OAuth 로그인 로직
@@ -77,6 +79,8 @@ public class AuthService {
               .build();
 
           memberRepository.save(newMember);
+          // 기본 폴더 자동 생성
+          folderService.createDefaultFolder(newMember);
           log.info("신규 회원 가입 - email={}, nickname={}", email, randomNickname);
           return newMember;
         });
